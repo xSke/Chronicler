@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIBR.Storage.Data", "SIBR.Storage.Data\SIBR.Storage.Data.csproj", "{12F7F48E-0A8A-4E2C-8AD7-56AD6F218640}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIBR.Storage.Ingest", "SIBR.Storage.Ingest\SIBR.Storage.Ingest.csproj", "{BF1631DF-7B09-4424-AD94-F02AC6D10330}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIBR.Storage.API", "SIBR.Storage.API\SIBR.Storage.API.csproj", "{EF8CA050-3E68-4EA2-B960-B922CFC7E54C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIBR.Storage.CLI", "SIBR.Storage.CLI\SIBR.Storage.CLI.csproj", "{435F9AC2-F995-490A-BD86-5E26C90D7945}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{12F7F48E-0A8A-4E2C-8AD7-56AD6F218640}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{12F7F48E-0A8A-4E2C-8AD7-56AD6F218640}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12F7F48E-0A8A-4E2C-8AD7-56AD6F218640}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{12F7F48E-0A8A-4E2C-8AD7-56AD6F218640}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BF1631DF-7B09-4424-AD94-F02AC6D10330}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BF1631DF-7B09-4424-AD94-F02AC6D10330}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BF1631DF-7B09-4424-AD94-F02AC6D10330}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BF1631DF-7B09-4424-AD94-F02AC6D10330}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EF8CA050-3E68-4EA2-B960-B922CFC7E54C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EF8CA050-3E68-4EA2-B960-B922CFC7E54C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EF8CA050-3E68-4EA2-B960-B922CFC7E54C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EF8CA050-3E68-4EA2-B960-B922CFC7E54C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{435F9AC2-F995-490A-BD86-5E26C90D7945}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{435F9AC2-F995-490A-BD86-5E26C90D7945}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{435F9AC2-F995-490A-BD86-5E26C90D7945}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{435F9AC2-F995-490A-BD86-5E26C90D7945}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
