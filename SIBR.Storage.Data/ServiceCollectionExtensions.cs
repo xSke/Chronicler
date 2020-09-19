@@ -29,7 +29,10 @@ namespace SIBR.Storage.Data
             return services
                 .AddSingleton(svc => new Database(svc, connectionString))
                 .AddSingleton<StreamUpdateStore>()
-                .AddSingleton<GameUpdateStore>();
+                .AddSingleton<GameUpdateStore>()
+                .AddSingleton<TeamUpdateStore>()
+                .AddSingleton<PlayerUpdateStore>()
+                .AddSingleton<MiscStore>();
         }
     }
 }

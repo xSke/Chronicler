@@ -1,13 +1,18 @@
 ﻿using System;
 using Newtonsoft.Json.Linq;
+using SIBR.Storage.Data.Utils;
 
 namespace SIBR.Storage.Data.Models
 {
-    public class GameUpdate
+    public class GameUpdate: StoredObject
     {
         public DateTimeOffset Timestamp;
-        public Guid Hash;
         public Guid GameId;
-        public JObject Data;
+
+        public GameUpdate(DateTimeOffset timestamp, JObject data) : base(data)
+        {
+            Timestamp = timestamp;
+            GameId = TgbUtils.GetId(data);
+        }
     }
 }

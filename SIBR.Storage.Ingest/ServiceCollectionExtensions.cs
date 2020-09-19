@@ -10,7 +10,10 @@ namespace SIBR.Storage.Ingest
             return services
                 .AddSingleton<HttpClient>()
                 .AddSingleton<EventStream>()
-                .AddSingleton<StreamDataConsumer>();
+                .AddSingleton<StreamDataConsumer>()
+                .AddSingleton<IdolsListWorker>()
+                .AddSingleton<TeamPlayerDataWorker>()
+                .AddSingleton<GlobalEventsWorker>();
         }
     }
 }

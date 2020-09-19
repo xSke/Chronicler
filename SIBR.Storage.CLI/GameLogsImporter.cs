@@ -10,6 +10,7 @@ using Newtonsoft.Json.Linq;
 using Npgsql;
 using Serilog;
 using SIBR.Storage.Data;
+using SIBR.Storage.Data.Models;
 
 namespace SIBR.Storage.CLI
 {
@@ -32,18 +33,35 @@ namespace SIBR.Storage.CLI
         {
             _logger.Information("Importing game logs from {Directory}", directory);
 
-            
             foreach (var file in Directory.EnumerateFiles(directory, "blaseball-log-*.json.gz"))
-            {
-                _logger.Information("Reading from {File}", file);
-                
-                var updates = ReadJsonGzLines(file)
-                    .Where(obj => ExtractTimestamp(obj) != null)
-                    .Select(obj => (ExtractTimestamp(obj)!.Value, WrapGamesObject(obj)));
-                await _streamStore.SaveUpdatesBulk(updates);
-            }
-            
+                await ProcessFile(file);
+
             _logger.Information("Done!");
+        }
+
+        private async Task ProcessFile(string filename)
+        {
+            _logger.Information("Reading from {File}", filename);
+            
+            var updates = new List<StreamUpdate>();
+            var gameUpdates = new List<GameUpdate>();
+            await foreach (var line in ReadJsonGzLines(filename))
+            {
+                var timestamp = ExtractTimestamp(line);
+                if (timestamp == null)
+                    continue;
+                    
+                updates.Add(new StreamUpdate(timestamp.Value, WrapGamesObject(line)));
+                foreach (var gameUpdate in ExtractSchedule(line)) 
+                    gameUpdates.Add(new GameUpdate(timestamp.Value, gameUpdate));
+            }
+
+            await using var conn = await _db.Obtain();
+            await using var tx = await conn.BeginTransactionAsync();
+            
+            await _streamStore.SaveUpdates(conn, updates);
+            await _gameStore.SaveGameUpdates(conn, gameUpdates);
+            await tx.CommitAsync();
         }
 
         private DateTimeOffset? ExtractTimestamp(JObject obj)
@@ -53,6 +71,13 @@ namespace SIBR.Storage.CLI
                 return null;
 
             return DateTimeOffset.FromUnixTimeMilliseconds(timestampToken.Value<long>());
+        }
+
+        private IEnumerable<JObject> ExtractSchedule(JObject obj)
+        {
+            if (!obj.ContainsKey("schedule"))
+                return new JObject[0];
+            return obj["schedule"]!.OfType<JObject>();
         }
 
         private JObject WrapGamesObject(JObject gamesObject)
@@ -67,24 +92,6 @@ namespace SIBR.Storage.CLI
                 }
             };
         }
-
-        /*private async Task InsertObject(NpgsqlConnection conn, JObject gamesObject)
-        {
-
-
-            var rootObject = 
-            await _streamStore.SaveUpdate(conn, timestamp, rootObject);
-
-            if (gamesObject.ContainsKey("schedule"))
-            {
-                var games = gamesObject["schedule"]!.Value<JArray>().OfType<JObject>();
-                await _gameStore.SaveGameUpdates(conn, timestamp, games);
-            }
-            else
-            {
-                _logger.Warning("Update at {Timestamp} does not have schedules key, skipping", timestamp);
-            }
-        }*/
 
         private async IAsyncEnumerable<JObject> ReadJsonGzLines(string file)
         {

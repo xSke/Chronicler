@@ -13,7 +13,7 @@ namespace SIBR.Storage.Ingest
             _logger = logger;
         }
 
-        public abstract Task Run();
+        protected abstract Task Run();
 
         public async Task Start()
         {

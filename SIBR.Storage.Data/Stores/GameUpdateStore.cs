@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
 using Newtonsoft.Json.Linq;
 using Npgsql;
+using NpgsqlTypes;
 using Serilog;
 using SIBR.Storage.Data.Models;
 using SIBR.Storage.Data.Utils;
@@ -41,39 +43,19 @@ namespace SIBR.Storage.Data
 
             return res;
         }
-
-        public async Task SaveGameUpdates(NpgsqlConnection conn, DateTimeOffset timestamp, IEnumerable<JObject> updates)
+        
+        public async Task SaveGameUpdates(NpgsqlConnection conn, IReadOnlyCollection<GameUpdate> updates)
         {
-            var count = 0;
-            foreach (var gameUpdate in updates)
+            var objectRows = await SaveObjects(conn, updates);
+            var rows = await conn.ExecuteAsync("insert into game_updates(timestamp, hash, game_id) select unnest(@Timestamps), unnest(@Hashes), unnest(@GameIds) on conflict do nothing", new
             {
-                var gameId = TgbUtils.GetId(gameUpdate);
-                var hash = SibrHash.HashAsGuid(gameUpdate);
-
-                var newRow = await conn.ExecuteAsync(
-                    @"
-insert into game_updates (timestamp, hash, data)
-select @timestamp, @hash, null
-where not exists (select 1 from game_updates where hash = @hash and timestamp = @timestamp)
-",
-//                     @"
-// insert into game_updates (timestamp, hash, data) 
-// values (@timestamp, @hash, null) 
-// on conflict (hash) do update 
-//     set timestamp = least(game_updates.timestamp, excluded.timestamp) where game_updates.timestamp != excluded.timestamp
-// returning (xmax = 0)",
-                    new {timestamp, hash});
-
-                if (newRow > 0)
-                {
-                    await conn.ExecuteAsync("update game_updates set data = @data where hash = @hash",
-                        new {hash, data = gameUpdate});
-                    count++;
-                }
-            }
-            
-            if (count > 0)
-                _logger.Information("Saved {Count} game updates at {Timestamp}", count, timestamp);
+                Timestamps = updates.Select(u => u.Timestamp).ToArray(),
+                Hashes = updates.Select(u => u.Hash).ToArray(),
+                GameIds = updates.Select(u => u.GameId).ToArray()
+            });
+            await conn.ExecuteAsync("update game_updates set search_tsv = (select to_tsvector('english', data->>'lastUpdate') from objects where objects.hash = game_updates.hash) where search_tsv is null");
+            if (rows > 0) 
+                _logger.Information("Saved {RowCount} game updates, {ObjectRowCount} new objects", rows, objectRows);
         }
 
         public class GameUpdateQueryOptions

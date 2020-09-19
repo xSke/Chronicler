@@ -6,19 +6,19 @@ namespace SIBR.Storage.Ingest
 {
     public abstract class IntervalWorker : BaseWorker
     {
-        public TimeSpan Interval { get; }
+        public TimeSpan Interval { get; set; }
         
         private readonly ILogger _logger;
 
-        public abstract Task RunInterval();
+        protected abstract Task RunInterval();
 
-        public override async Task Run()
+        protected override async Task Run()
         {
             while (true)
             {
                 try
                 {
-                    await Run();
+                    await RunInterval();
                 }
                 catch (Exception e)
                 {

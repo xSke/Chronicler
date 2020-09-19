@@ -1,4 +1,5 @@
-﻿using System.Net.Http;
+﻿using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using CommandLine;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,25 +17,55 @@ namespace SIBR.Storage.CLI
             public string Directory { get; set; }
         }
         
+        [Verb("import-hourly")]
+        public class ImportHourlyOptions
+        {
+            [Value(0, MetaName="directory", HelpText = "The directory to read hourly log files from")]
+            public string Directory { get; set; }
+        }
+
+        [Verb("migrations")]
+        public class Migrations
+        {
+            
+        }
+
+        [Verb("ingest")]
+        public class Ingest
+        {
+            
+        }
+        
         static async Task Main(string[] args)
         {
             var services = new ServiceCollection()
                 .AddSerilog()
                 .AddSibrStorage()
-                .AddSingleton<HttpClient>()
-                .AddSingleton<EventStream>()
-                .AddSingleton<StreamDataConsumer>()
+                .AddSibrIngest()
                 .AddSingleton<GameLogsImporter>()
+                .AddSingleton<HourlyLogsImporter>()
                 .BuildServiceProvider();
 
-            var result = Parser.Default.ParseArguments<ImportLogsOptions, object>(args);
-            await result.WithParsedAsync<ImportLogsOptions>(async opts =>
+            var result = Parser.Default.ParseArguments<ImportLogsOptions, ImportHourlyOptions, Migrations, Ingest>(args);
+            await result.WithParsedAsync<ImportLogsOptions>(opts => 
+                services.GetRequiredService<GameLogsImporter>().Import(opts.Directory));
+            await result.WithParsedAsync<ImportHourlyOptions>(opts => 
+                services.GetRequiredService<HourlyLogsImporter>().Import(opts.Directory));
+            await result.WithParsedAsync<Migrations>(_ =>
+                services.GetRequiredService<Database>().RunMigrations());
+            
+            await result.WithParsedAsync<Ingest>(async opts =>
             {
-                await services.GetRequiredService<GameLogsImporter>().Import(opts.Directory);
-            });
+                var workers = new BaseWorker[]
+                {
+                    services.GetRequiredService<GlobalEventsWorker>(),
+                    services.GetRequiredService<IdolsListWorker>(),
+                    services.GetRequiredService<StreamDataConsumer>(),
+                    services.GetRequiredService<TeamPlayerDataWorker>()
+                };
 
-            // services.GetRequiredService<Database>()
-            //     .RunMigrations().GetAwaiter().GetResult();
+                await Task.WhenAll(workers.Select(w => w.Start()));
+            });
         }
     }
-}
+};
