@@ -14,14 +14,7 @@ namespace SIBR.Storage.Data
 {
     public class StreamUpdateStore : BaseStore
     {
-        private readonly ILogger _logger;
-
-        public StreamUpdateStore(ILogger logger)
-        {
-            _logger = logger;
-        }
-
-        public async Task SaveUpdates(NpgsqlConnection conn, IReadOnlyCollection<StreamUpdate> updates)
+        public async Task<UpdateStoreResult> SaveUpdates(NpgsqlConnection conn, IReadOnlyCollection<StreamUpdate> updates)
         {
             var objectRows = await SaveObjects(conn, updates);
             
@@ -31,8 +24,7 @@ namespace SIBR.Storage.Data
                 Hashes = updates.Select(u => u.Hash).ToArray()
             });
 
-            if (rows > 0) 
-                _logger.Information("Imported {RowCount} stream data updates, {ObjectRowCount} new objects", rows, objectRows);
+            return new UpdateStoreResult(rows, objectRows);
         }
     }
 }

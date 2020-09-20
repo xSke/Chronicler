@@ -9,6 +9,10 @@ namespace SIBR.Storage.Data.Models
         public DateTimeOffset Timestamp;
         public Guid GameId;
 
+        public GameUpdate()
+        {
+        }
+
         public GameUpdate(DateTimeOffset timestamp, JObject data) : base(data)
         {
             Timestamp = timestamp;

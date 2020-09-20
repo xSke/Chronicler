@@ -17,12 +17,10 @@ namespace SIBR.Storage.Data
 {
     public class GameUpdateStore : BaseStore
     {
-        private readonly ILogger _logger;
         private readonly Database _db;
 
-        public GameUpdateStore(ILogger logger, Database db)
+        public GameUpdateStore(Database db)
         {
-            _logger = logger;
             _db = db;
         }
 
@@ -31,7 +29,7 @@ namespace SIBR.Storage.Data
             await using var conn = await _db.Obtain();
             var q = new Query("game_updates_view")
                 .OrderBy("timestamp")
-                .Limit(100);
+                .Limit(opts.Count);
 
             if (opts.Season != null) q.Where("season", opts.Season.Value);
             if (opts.Day != null) q.Where("day", opts.Day.Value);
@@ -44,18 +42,27 @@ namespace SIBR.Storage.Data
             return res;
         }
         
-        public async Task SaveGameUpdates(NpgsqlConnection conn, IReadOnlyCollection<GameUpdate> updates)
+        public async Task<UpdateStoreResult> SaveGameUpdates(NpgsqlConnection conn, IReadOnlyCollection<GameUpdate> updates)
         {
             var objectRows = await SaveObjects(conn, updates);
-            var rows = await conn.ExecuteAsync("insert into game_updates(timestamp, hash, game_id) select unnest(@Timestamps), unnest(@Hashes), unnest(@GameIds) on conflict do nothing", new
+            var rows = await conn.ExecuteAsync(@"
+insert into game_updates(timestamp, hash, game_id, data)
+select timestamp, hash, game_id, (select data from objects where objects.hash = updates.hash) 
+from (select unnest(@Timestamps) as timestamp, unnest(@Hashes) as hash, unnest(@GameIds) as game_id) as updates
+on conflict do nothing", new
             {
                 Timestamps = updates.Select(u => u.Timestamp).ToArray(),
                 Hashes = updates.Select(u => u.Hash).ToArray(),
                 GameIds = updates.Select(u => u.GameId).ToArray()
             });
-            await conn.ExecuteAsync("update game_updates set search_tsv = (select to_tsvector('english', data->>'lastUpdate') from objects where objects.hash = game_updates.hash) where search_tsv is null");
-            if (rows > 0) 
-                _logger.Information("Saved {RowCount} game updates, {ObjectRowCount} new objects", rows, objectRows);
+            
+            await conn.ExecuteAsync(
+                "insert into games (game_id) select unnest(@GameIds) on conflict do nothing", new
+                {
+                    GameIds = updates.Select(u => u.GameId).ToArray()
+                });
+            
+            return new UpdateStoreResult(rows, objectRows);
         }
 
         public class GameUpdateQueryOptions
@@ -64,6 +71,7 @@ namespace SIBR.Storage.Data
             public int? Day { get; set; }
             public Guid? Game { get; set; }
             public DateTimeOffset? After { get; set; }
+            public int Count { get; set; }
         }
     }
 }

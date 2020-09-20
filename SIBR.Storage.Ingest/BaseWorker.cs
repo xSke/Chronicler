@@ -1,16 +1,18 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
 namespace SIBR.Storage.Ingest
 {
     public abstract class BaseWorker
     {
-        private readonly ILogger _logger;
+        protected readonly ILogger _logger;
 
-        protected BaseWorker(ILogger logger)
+        protected BaseWorker(IServiceProvider services)
         {
-            _logger = logger;
+            _logger = services.GetRequiredService<ILogger>()
+                .ForContext(GetType());
         }
 
         protected abstract Task Run();
@@ -21,6 +23,7 @@ namespace SIBR.Storage.Ingest
             {
                 try
                 {
+                    _logger.Information("Starting ingest worker {WorkerType}", GetType().Name);
                     await Run();
                 }
                 catch (Exception e)

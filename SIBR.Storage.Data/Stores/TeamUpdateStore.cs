@@ -12,14 +12,7 @@ namespace SIBR.Storage.Data
 {
     public class TeamUpdateStore: BaseStore
     {
-        private readonly ILogger _logger;
-
-        public TeamUpdateStore(ILogger logger)
-        {
-            _logger = logger;
-        }
-
-        public async Task SaveTeamUpdates(NpgsqlConnection conn, IReadOnlyCollection<TeamUpdate> teams)
+        public async Task<UpdateStoreResult> SaveTeamUpdates(NpgsqlConnection conn, IReadOnlyCollection<TeamUpdate> teams)
         {
             var objectRows = await SaveObjects(conn, teams);
             var rows = await conn.ExecuteAsync(
@@ -29,9 +22,8 @@ namespace SIBR.Storage.Data
                     Hashes = teams.Select(to => to.Hash).ToArray(),
                     TeamIds = teams.Select(to => to.TeamId).ToArray()
                 });
-            
-            if (rows > 0)
-                _logger.Information("Imported {RowCount} team updates, {ObjectRowCount} new objects", rows, objectRows);
+
+            return new UpdateStoreResult(rows, objectRows);
         }
     }
 }

@@ -10,7 +10,17 @@ namespace SIBR.Storage.Data.Models
         public const string OffseasonSetup = "offseason_setup";
         public const string Sim = "sim";
         public const string Temporal = "temporal";
-        
+        public const string Tributes = "tributes";
+        public const string Tiebreakers = "tiebreakers";
+        public const string Standings = "standings";
+        public const string Season = "season";
+        public const string Postseason = "postseason";
+
+        // todo: store these as arrays or as split-up objects? misc can/should index by ID too
+        public const string Leagues = "leagues";
+        public const string Subleagues = "subleagues";
+        public const string Divisions = "divisions";
+
         public DateTimeOffset Timestamp;
         public string Type;
 

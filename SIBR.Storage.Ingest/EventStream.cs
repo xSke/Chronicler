@@ -16,7 +16,7 @@ namespace SIBR.Storage.Ingest
         public EventStream(HttpClient client, ILogger logger)
         {
             _client = client;
-            _logger = logger;
+            _logger = logger.ForContext<EventStream>();
         }
 
         public async Task OpenStream(string url, Action<string> callback)
@@ -47,7 +47,7 @@ namespace SIBR.Storage.Ingest
                 }
                 catch (Exception e)
                 {
-                    _logger.Error(e, "Error while processing stream");
+                    _logger.Error(e, "Error while reading from stream");
                 }
             }
         }

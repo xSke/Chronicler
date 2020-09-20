@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Humanizer;
+using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
 namespace SIBR.Storage.Ingest
@@ -8,7 +10,6 @@ namespace SIBR.Storage.Ingest
     {
         public TimeSpan Interval { get; set; }
         
-        private readonly ILogger _logger;
 
         protected abstract Task RunInterval();
 
@@ -18,11 +19,12 @@ namespace SIBR.Storage.Ingest
             {
                 try
                 {
+                    _logger.Information("Running interval worker {WorkerType} (interval of {Interval})", GetType().Name, Interval.Humanize());
                     await RunInterval();
                 }
                 catch (Exception e)
                 {
-                    _logger.Error(e, "Error while running worker {WorkerType}", GetType().Name);
+                    _logger.Error(e, "Error running worker {WorkerType}", GetType().Name);
                 }
 
                 // (arbitrary, just for tick alignment mostly)
@@ -33,9 +35,8 @@ namespace SIBR.Storage.Ingest
             }
         }
 
-        protected IntervalWorker(ILogger logger) : base(logger)
+        protected IntervalWorker(IServiceProvider services) : base(services)
         {
-            _logger = logger;
         }
     }
 }

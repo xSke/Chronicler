@@ -1,8 +1,7 @@
 ﻿create table objects
 (
     hash uuid  not null primary key,
-    data jsonb not null,
-    id   uuid generated always as (coalesce(data ->> '_id', data ->> 'id')::uuid) stored
+    data jsonb not null
 );
 create index if not exists objects_hash_idx on objects (hash);
 
@@ -21,13 +20,20 @@ create table game_updates
     timestamp  timestamptz not null,
     game_id    uuid        not null,
     hash       uuid        not null,
-    search_tsv tsvector default null,
-
+    data       jsonb       not null,
+    search_tsv tsvector generated always as (to_tsvector(data ->> 'lastUpdate')) stored,
+    
     primary key (timestamp, hash)
 );
 create index if not exists game_updates_hash_idx on game_updates (hash);
-create index if not exists game_updates_timestamp_idx on game_updates (timestamp);
+create index if not exists game_updates_game_id_idx on game_updates (game_id);
+create index if not exists game_updates_timestamp_season_day_idx on game_updates (timestamp, ((data ->> 'season')::int), ((data ->> 'day')::int));
 create index if not exists game_updates_search_tsv_idx on game_updates using gin (search_tsv);
+
+create table games
+(
+    game_id uuid not null primary key 
+);
 
 create table site_updates
 (
@@ -58,8 +64,8 @@ create table player_updates
     unique (timestamp, hash)
 );
 create index player_updates_timestamp_idx on player_updates (timestamp);
-create index player_updates_player_id_idx on player_updates (player_id);
 create index player_updates_player_id_timestamp_idx on player_updates (player_id, timestamp desc);
+create index player_updates_player_id_timestamp_hash_idx on player_updates (player_id, timestamp, hash);
 
 create table misc_updates
 (

@@ -12,14 +12,7 @@ namespace SIBR.Storage.Data
 {
     public class MiscStore : BaseStore
     {
-        private readonly ILogger _logger;
-
-        public MiscStore(ILogger logger)
-        {
-            _logger = logger;
-        }
-
-        public async Task SaveMiscUpdates(NpgsqlConnection conn, IReadOnlyCollection<MiscUpdate> updates)
+        public async Task<UpdateStoreResult> SaveMiscUpdates(NpgsqlConnection conn, IReadOnlyCollection<MiscUpdate> updates)
         {
             var objectRows = await SaveObjects(conn, updates);
             var rows = await conn.ExecuteAsync(
@@ -31,8 +24,7 @@ namespace SIBR.Storage.Data
                     Hashes = updates.Select(u => u.Hash).ToArray()
                 });
             
-            if (rows > 0)
-                _logger.Information("Imported {RowCount} misc. updates, {ObjectRowCount} new objects", rows, objectRows);
+            return new UpdateStoreResult(rows, objectRows); 
         }
     }
 }

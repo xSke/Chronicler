@@ -12,14 +12,7 @@ namespace SIBR.Storage.Data
 {
     public class PlayerUpdateStore: BaseStore
     {
-        private readonly ILogger _logger;
-
-        public PlayerUpdateStore(ILogger logger)
-        {
-            _logger = logger;
-        }
-
-        public async Task SavePlayerUpdates(NpgsqlConnection conn, IReadOnlyCollection<PlayerUpdate> players)
+        public async Task<UpdateStoreResult> SavePlayerUpdates(NpgsqlConnection conn, IReadOnlyCollection<PlayerUpdate> players)
         {
             var objectRows = await SaveObjects(conn, players);
             var rows = await conn.ExecuteAsync(
@@ -36,8 +29,7 @@ namespace SIBR.Storage.Data
                     PlayerIds = players.Select(po => po.PlayerId).ToArray()
                 });
             
-            if (rows > 0)
-                _logger.Information("Imported {RowCount} player updates, {ObjectRowCount} new objects, {NewPlayers} new players", rows, objectRows, newPlayers);
+            return new UpdateStoreResult(rows, objectRows, newPlayers);
         }
 
         public async Task<IEnumerable<Guid>> GetAllPlayerIds(NpgsqlConnection conn) => 

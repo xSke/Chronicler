@@ -9,11 +9,10 @@ namespace SIBR.Storage.Ingest
         {
             return services
                 .AddSingleton<HttpClient>()
-                .AddSingleton<EventStream>()
-                .AddSingleton<StreamDataConsumer>()
-                .AddSingleton<IdolsListWorker>()
-                .AddSingleton<TeamPlayerDataWorker>()
-                .AddSingleton<GlobalEventsWorker>();
+                .AddTransient<EventStream>()
+                .AddTransient<StreamDataWorker>()
+                .AddTransient<TeamPlayerDataWorker>()
+                .AddTransient<SiteUpdateWorker>();
         }
     }
 }

@@ -9,6 +9,10 @@ namespace SIBR.Storage.Data.Models
         public Guid Hash { get; set; }
         public JToken Data { get; set; }
 
+        public StoredObject()
+        {
+        }
+
         public StoredObject(JToken data)
         {
             Hash = SibrHash.HashAsGuid(data);

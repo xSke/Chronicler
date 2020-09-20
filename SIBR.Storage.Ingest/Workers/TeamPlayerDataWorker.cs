@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using Serilog;
 using SIBR.Storage.Data;
@@ -10,19 +11,19 @@ using SIBR.Storage.Data.Models;
 
 namespace SIBR.Storage.Ingest
 {
-    public class TeamPlayerDataWorker: IntervalWorker
+    public class TeamPlayerDataWorker : IntervalWorker
     {
         private readonly HttpClient _client;
         private readonly Database _db;
         private readonly TeamUpdateStore _teamStore;
         private readonly PlayerUpdateStore _playerStore;
-        
-        public TeamPlayerDataWorker(ILogger logger, HttpClient client, PlayerUpdateStore playerStore, TeamUpdateStore teamStore, Database db) : base(logger)
+
+        public TeamPlayerDataWorker(IServiceProvider services) : base(services)
         {
-            _client = client;
-            _playerStore = playerStore;
-            _teamStore = teamStore;
-            _db = db;
+            _client = services.GetRequiredService<HttpClient>();
+            _playerStore = services.GetRequiredService<PlayerUpdateStore>();
+            _teamStore = services.GetRequiredService<TeamUpdateStore>();
+            _db = services.GetRequiredService<Database>();
             Interval = TimeSpan.FromMinutes(5);
         }
 
@@ -30,16 +31,20 @@ namespace SIBR.Storage.Ingest
         {
             await using var conn = await _db.Obtain();
             await using var tx = await conn.BeginTransactionAsync();
-            
+
             var allTeams = (await FetchAllTeams()).ToList();
-            await _teamStore.SaveTeamUpdates(conn, allTeams);
+            var teamsRes = await _teamStore.SaveTeamUpdates(conn, allTeams);
 
             var playerIds = allTeams.SelectMany(team => AllPlayersOnTeam(team.Data as JObject)).ToHashSet();
             playerIds.UnionWith(await _playerStore.GetAllPlayerIds(conn));
 
             var allPlayers = await FetchPlayersChunked(playerIds, 150);
-            await _playerStore.SavePlayerUpdates(conn, allPlayers);
-            
+            var playersRes = await _playerStore.SavePlayerUpdates(conn, allPlayers);
+
+            _logger.Information(
+                "Saved {TeamUpdates} team updates ({TeamObjects} new), {PlayerUpdates} player updates ({TeamObjects} new)",
+                teamsRes.NewUpdates, teamsRes.NewObjects, playersRes.NewUpdates, playersRes.NewObjects);
+
             await tx.CommitAsync();
         }
 
@@ -47,7 +52,7 @@ namespace SIBR.Storage.Ingest
         {
             var chunk = new List<Guid>();
             var output = new List<PlayerUpdate>();
-            
+
             foreach (var playerId in playerIds)
             {
                 chunk.Add(playerId);
@@ -58,7 +63,7 @@ namespace SIBR.Storage.Ingest
                 }
             }
 
-            if (chunk.Count > 0) 
+            if (chunk.Count > 0)
                 output.AddRange(await FetchPlayers(chunk));
 
             return output;
@@ -67,7 +72,7 @@ namespace SIBR.Storage.Ingest
         private async Task<IEnumerable<PlayerUpdate>> FetchPlayers(IEnumerable<Guid> playerIds)
         {
             var queryIds = string.Join(',', playerIds);
-            
+
             var timestamp = DateTimeOffset.UtcNow;
             var json = await _client.GetStringAsync("https://www.blaseball.com/database/players?ids=" + queryIds);
 
