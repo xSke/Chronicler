@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
@@ -11,14 +12,16 @@ namespace SIBR.Storage.CLI.Import
     public class IdolLogsImporter: S3FileImporter
     {
         private readonly Database _db;
-        private readonly MiscStore _miscStore;
+        private readonly UpdateStore _store;
+        private readonly Guid _sourceId;
         
-        public IdolLogsImporter(IServiceProvider services) : base(services)
+        public IdolLogsImporter(IServiceProvider services, Guid sourceId) : base(services)
         {
+            _sourceId = sourceId;
             FileFilter = "idols-*.json.gz";
 
             _db = services.GetRequiredService<Database>();
-            _miscStore = services.GetRequiredService<MiscStore>();
+            _store = services.GetRequiredService<UpdateStore>();
         }
 
         protected override async Task ProcessFile(string filename, IAsyncEnumerable<JToken> entries)
@@ -28,17 +31,20 @@ namespace SIBR.Storage.CLI.Import
                 return;
 
             await using var conn = await _db.Obtain();
-            await using var tx = await conn.BeginTransactionAsync();
-            
-            await foreach (var entry in entries)
+            await using (var tx = await conn.BeginTransactionAsync())
             {
-                var update = new MiscUpdate(MiscUpdate.Idols, timestamp.Value, entry);
-                var res = await _miscStore.SaveMiscUpdates(conn, new[] { update });
-                if (res.NewUpdates > 0)
-                    _logger.Information("- Imported idols update at {Timestamp}", timestamp);
-            }
+                var updates = await entries
+                    .Select(entry => EntityUpdate.From(UpdateType.Idols, _sourceId, timestamp.Value, entry))
+                    .ToListAsync();
 
-            await tx.CommitAsync();
+                var res = await _store.SaveUpdates(conn, updates);
+                if (res > 0)
+                    _logger.Information("- Imported idols update at {Timestamp}", timestamp);
+
+                await tx.CommitAsync();
+            }
+            
+            await _store.RefreshMaterializedViews(conn, "idols_versions");
         }
     }
 }

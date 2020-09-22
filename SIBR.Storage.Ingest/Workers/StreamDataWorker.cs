@@ -1,12 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
+using NodaTime;
 using Npgsql;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
+using SIBR.Storage.Data.Utils;
 
 namespace SIBR.Storage.Ingest
 {
@@ -14,81 +17,60 @@ namespace SIBR.Storage.Ingest
     {
         private readonly EventStream _eventStream;
         private readonly Database _db;
-        private readonly StreamUpdateStore _streamStore;
         private readonly GameUpdateStore _gameStore;
-        private readonly TeamUpdateStore _teamStore;
-        private readonly MiscStore _miscStore;
+        private readonly UpdateStore _updateStore;
+        private readonly IClock _clock;
+        private readonly Guid _sourceId;
 
-        public StreamDataWorker(IServiceProvider services) : base(services)
+        public StreamDataWorker(IServiceProvider services, Guid sourceId) : base(services)
         {
+            _sourceId = sourceId;
+            _clock = services.GetRequiredService<IClock>();
+            _updateStore = services.GetRequiredService<UpdateStore>();
             _eventStream = services.GetRequiredService<EventStream>();
-            _streamStore = services.GetRequiredService<StreamUpdateStore>();
             _db = services.GetRequiredService<Database>();
             _gameStore = services.GetRequiredService<GameUpdateStore>();
-            _teamStore = services.GetRequiredService<TeamUpdateStore>();
-            _miscStore = services.GetRequiredService<MiscStore>();
+            _clock = services.GetRequiredService<IClock>();
         }
 
         private async Task HandleStreamData(string obj)
         {
-            var timestamp = DateTimeOffset.UtcNow;
+            var timestamp = _clock.GetCurrentInstant();
             var data = JObject.Parse(obj);
 
             await using var conn = await _db.Obtain();
             await using var tx = await conn.BeginTransactionAsync();
+            await _updateStore.SaveUpdate(conn, EntityUpdate.From(UpdateType.Stream, _sourceId, timestamp, data));
 
-            await _streamStore.SaveUpdates(conn, new[] {new StreamUpdate(timestamp, data)});
+            // var gamesRes = await SaveGameUpdates(data, conn, timestamp);
 
-            var gamesRes = new UpdateStoreResult();
-            if (data["value"]?["games"]?["schedule"] is JArray scheduleObj)
-                gamesRes = await SaveGameUpdates(conn, timestamp, scheduleObj.OfType<JObject>());
-
-            var teamsRes = new UpdateStoreResult();
-            if (data["value"]?["leagues"]?["teams"] is JArray teamsObj)
-                teamsRes = await SaveTeamUpdates(conn, timestamp, teamsObj.OfType<JObject>());
-
-            var miscRes = await _miscStore.SaveMiscUpdates(conn, ExtractMiscObjects(data, timestamp));
-
+            var updates = TgbUtils.ExtractUpdatesFromStreamRoot(_sourceId, timestamp, data).EntityUpdates;
+            var miscRes = await _updateStore.SaveUpdates(conn, updates);
+            
             _logger.Information(
-                "Saved {GameUpdates} game updates ({GameObjects} new), {TeamUpdates} team updates ({TeamObjects} new), {MiscUpdates} misc updates ({MiscObjects} new)",
-                gamesRes.NewUpdates, gamesRes.NewObjects, teamsRes.NewUpdates, teamsRes.NewObjects, miscRes.NewUpdates,
-                miscRes.NewObjects);
+                "Saved {GameUpdates} game updates, {MiscUpdates} misc updates (combined games hash {Hash})",
+                0, miscRes, 0);
             
             await tx.CommitAsync();
         }
-
-        private List<MiscUpdate> ExtractMiscObjects(JObject data, DateTimeOffset timestamp)
+        
+        private async Task<(int, Guid)> SaveGameUpdates(JObject data, NpgsqlConnection conn, Instant timestamp)
         {
-            var misc = new List<MiscUpdate>();
-
-            void TryAdd(string type, string path)
+            if (data["value"]?["games"]?["schedule"] is JArray scheduleObj)
             {
-                var token = data.SelectToken(path);
-                if (token != null)
-                    misc.Add(new MiscUpdate(type, timestamp, token));
+                await SaveGameUpdates(conn, timestamp, scheduleObj.OfType<JObject>());
+                return (scheduleObj.Count, SibrHash.HashAsGuid(scheduleObj));
             }
-
-            TryAdd(MiscUpdate.Sim, "value.games.sim");
-            TryAdd(MiscUpdate.Standings, "value.games.standings");
-            TryAdd(MiscUpdate.Season, "value.games.season");
-            TryAdd(MiscUpdate.Postseason, "value.games.postseason");
-            TryAdd(MiscUpdate.Leagues, "value.leagues.leagues");
-            TryAdd(MiscUpdate.Subleagues, "value.leagues.subleagues");
-            TryAdd(MiscUpdate.Divisions, "value.leagues.divisions");
-            TryAdd(MiscUpdate.Tiebreakers, "value.leagues.tiebreakers");
-            TryAdd(MiscUpdate.Temporal, "value.temporal");
-
-            return misc;
+            
+            return (0, default);
         }
 
-        private async Task<UpdateStoreResult> SaveTeamUpdates(NpgsqlConnection conn, DateTimeOffset timestamp,
-            IEnumerable<JObject> teams) =>
-            await _teamStore.SaveTeamUpdates(conn, teams.Select(team => new TeamUpdate(timestamp, team)).ToList());
-
-        private async Task<UpdateStoreResult> SaveGameUpdates(NpgsqlConnection conn, DateTimeOffset timestamp,
-            IEnumerable<JObject> gameUpdates) =>
-            await _gameStore.SaveGameUpdates(conn,
-                gameUpdates.Select(update => new GameUpdate(timestamp, update)).ToArray());
+        private async Task SaveGameUpdates(NpgsqlConnection conn, Instant timestamp,
+            IEnumerable<JObject> gameUpdates)
+        {
+            var updates = GameUpdate.FromArray(_sourceId, timestamp, gameUpdates);
+            await _gameStore.SaveGameUpdates(conn, updates.ToList());
+        }
 
         protected override async Task Run()
         {

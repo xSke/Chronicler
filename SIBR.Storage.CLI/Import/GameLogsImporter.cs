@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
@@ -10,58 +9,73 @@ using SIBR.Storage.Data.Models;
 
 namespace SIBR.Storage.CLI
 {
-    public class GameLogsImporter: S3FileImporter
+    public class GameLogsImporter : S3FileImporter
     {
         private readonly Database _db;
-        private readonly StreamUpdateStore _streamStore;
+        private readonly UpdateStore _updateStore;
         private readonly GameUpdateStore _gameStore;
+        private readonly Guid _sourceId;
 
-        public GameLogsImporter(IServiceProvider services): base(services)
+        public GameLogsImporter(IServiceProvider services, Guid sourceId) : base(services)
         {
+            _sourceId = sourceId;
             FileFilter = "blaseball-log-*.json.gz";
 
             _db = services.GetRequiredService<Database>();
-            _streamStore = services.GetRequiredService<StreamUpdateStore>();
+            _updateStore = services.GetRequiredService<UpdateStore>();
             _gameStore = services.GetRequiredService<GameUpdateStore>();
         }
-        
+
         protected override async Task ProcessFile(string filename, IAsyncEnumerable<JToken> entries)
         {
-            var updates = new List<StreamUpdate>();
+            var streamUpdates = new List<EntityUpdate>();
+            var miscUpdates = new List<EntityUpdate>();
             var gameUpdates = new List<GameUpdate>();
+
             await foreach (var entry in entries)
             {
                 var timestamp = ExtractTimestamp(entry);
                 if (timestamp == null)
                     continue;
-                    
-                updates.Add(new StreamUpdate(timestamp.Value, WrapGamesObject(entry as JObject)));
-                gameUpdates.AddRange(ExtractSchedule(entry as JObject)
-                    .Select(gameUpdate => new GameUpdate(timestamp.Value, gameUpdate)));
+
+                var root = FindStreamRoot(entry as JObject);
+                streamUpdates.Add(EntityUpdate.From(UpdateType.Stream, _sourceId, timestamp.Value, root));
+
+                if (entry["value"]?["games"]?["schedule"] is JArray scheduleObj)
+                    gameUpdates.AddRange(GameUpdate.FromArray(_sourceId, timestamp.Value, scheduleObj));
+
+                if (entry["value"]?["games"]?["sim"] is JObject simObj)
+                    miscUpdates.Add(EntityUpdate.From(UpdateType.Sim, _sourceId, timestamp.Value, simObj));
             }
 
             await using var conn = await _db.Obtain();
             await using var tx = await conn.BeginTransactionAsync();
-            
-            var streamRes = await _streamStore.SaveUpdates(conn, updates);
-            var gameRes = await _gameStore.SaveGameUpdates(conn, gameUpdates);
-            _logger.Information("- Imported {StreamUpdates} stream updates ({StreamObjects} new), {GameUpdates} game updates ({GameObjects} new objects, {NewGames} new games)",
-                streamRes.NewUpdates, streamRes.NewObjects, gameRes.NewUpdates, gameRes.NewObjects, gameRes.NewKeys);
+
+            var streamRes = await _updateStore.SaveUpdates(conn, streamUpdates, false); 
+            await _gameStore.SaveGameUpdates(conn, gameUpdates, false);
+            var miscRes = await _updateStore.SaveUpdates(conn, miscUpdates, false);
+            _logger.Information(
+                "- Imported {StreamUpdates} stream updates, {GameUpdates} game updates, {MiscUpdates} misc updates",
+                streamRes, gameUpdates.Count, miscRes);
             await tx.CommitAsync();
         }
-        
-        private IEnumerable<JObject> ExtractSchedule(JObject obj) => 
-            obj["schedule"]?.OfType<JObject>() ?? new JObject[0];
 
-        private JObject WrapGamesObject(JToken gamesObject) =>
-            new JObject
+        private JObject FindStreamRoot(JToken value)
+        {
+            // If contains "value", it's the correct stream root
+            if (value is JObject root && root.ContainsKey("value"))
+                return root;
+            
+            // Otherwise it's the games obj (eg. from iliana)
+            return new JObject
             {
                 {
                     "value", new JObject
                     {
-                        {"games", gamesObject}
+                        {"games", value}
                     }
                 }
             };
+        }
     }
 }

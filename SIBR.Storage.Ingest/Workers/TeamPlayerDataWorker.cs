@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
+using NodaTime;
+using Npgsql;
 using Serilog;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
@@ -15,43 +18,48 @@ namespace SIBR.Storage.Ingest
     {
         private readonly HttpClient _client;
         private readonly Database _db;
-        private readonly TeamUpdateStore _teamStore;
+        private readonly UpdateStore _updateStore;
         private readonly PlayerUpdateStore _playerStore;
+        private readonly IClock _clock;
+        private readonly Guid _sourceId;
 
-        public TeamPlayerDataWorker(IServiceProvider services) : base(services)
+        public TeamPlayerDataWorker(IServiceProvider services, Guid sourceId) : base(services)
         {
+            _sourceId = sourceId;
             _client = services.GetRequiredService<HttpClient>();
+            _updateStore = services.GetRequiredService<UpdateStore>();
             _playerStore = services.GetRequiredService<PlayerUpdateStore>();
-            _teamStore = services.GetRequiredService<TeamUpdateStore>();
             _db = services.GetRequiredService<Database>();
+            _clock = services.GetRequiredService<IClock>();
             Interval = TimeSpan.FromMinutes(5);
         }
 
         protected override async Task RunInterval()
         {
             await using var conn = await _db.Obtain();
-            await using var tx = await conn.BeginTransactionAsync();
+            await using (var tx = await conn.BeginTransactionAsync())
+            {
 
-            var allTeams = (await FetchAllTeams()).ToList();
-            var teamsRes = await _teamStore.SaveTeamUpdates(conn, allTeams);
+                var updates = new List<EntityUpdate>();
+                var allTeams = (await FetchAllTeams()).ToList();
+                updates.AddRange(allTeams);
 
-            var playerIds = allTeams.SelectMany(team => AllPlayersOnTeam(team.Data as JObject)).ToHashSet();
-            playerIds.UnionWith(await _playerStore.GetAllPlayerIds(conn));
+                var playerIds = allTeams.SelectMany(team => AllPlayersOnTeam(team.Data as JObject)).ToHashSet();
+                playerIds.UnionWith(await _playerStore.GetAllPlayerIds(conn));
 
-            var allPlayers = await FetchPlayersChunked(playerIds, 150);
-            var playersRes = await _playerStore.SavePlayerUpdates(conn, allPlayers);
+                updates.AddRange(await FetchPlayersChunked(playerIds, 150));
+                var res = await _updateStore.SaveUpdates(conn, updates);
+                await tx.CommitAsync();
+                _logger.Information("Saved {Updates} team and player updates", res);
+            }
 
-            _logger.Information(
-                "Saved {TeamUpdates} team updates ({TeamObjects} new), {PlayerUpdates} player updates ({TeamObjects} new)",
-                teamsRes.NewUpdates, teamsRes.NewObjects, playersRes.NewUpdates, playersRes.NewObjects);
-
-            await tx.CommitAsync();
+            await _updateStore.RefreshMaterializedViews(conn, "team_versions", "player_versions");
         }
 
-        private async Task<List<PlayerUpdate>> FetchPlayersChunked(IEnumerable<Guid> playerIds, int chunkSize)
+        private async Task<List<EntityUpdate>> FetchPlayersChunked(IEnumerable<Guid> playerIds, int chunkSize)
         {
             var chunk = new List<Guid>();
-            var output = new List<PlayerUpdate>();
+            var output = new List<EntityUpdate>();
 
             foreach (var playerId in playerIds)
             {
@@ -69,26 +77,20 @@ namespace SIBR.Storage.Ingest
             return output;
         }
 
-        private async Task<IEnumerable<PlayerUpdate>> FetchPlayers(IEnumerable<Guid> playerIds)
+        private async Task<IEnumerable<EntityUpdate>> FetchPlayers(IEnumerable<Guid> playerIds)
         {
             var queryIds = string.Join(',', playerIds);
 
-            var timestamp = DateTimeOffset.UtcNow;
+            var timestamp = _clock.GetCurrentInstant();
             var json = await _client.GetStringAsync("https://www.blaseball.com/database/players?ids=" + queryIds);
-
-            return JArray.Parse(json)
-                .OfType<JObject>()
-                .Select(player => new PlayerUpdate(timestamp, player));
+            return EntityUpdate.FromArray(UpdateType.Player, _sourceId, timestamp, JArray.Parse(json));
         }
 
-        private async Task<IEnumerable<TeamUpdate>> FetchAllTeams()
+        private async Task<IEnumerable<EntityUpdate>> FetchAllTeams()
         {
-            var timestamp = DateTimeOffset.UtcNow;
+            var timestamp = _clock.GetCurrentInstant();
             var json = await _client.GetStringAsync("https://www.blaseball.com/database/allTeams");
-
-            return JArray.Parse(json)
-                .OfType<JObject>()
-                .Select(team => new TeamUpdate(timestamp, team));
+            return EntityUpdate.FromArray(UpdateType.Team, _sourceId, timestamp, JArray.Parse(json));
         }
 
         private List<Guid> AllPlayersOnTeam(JObject teamData)

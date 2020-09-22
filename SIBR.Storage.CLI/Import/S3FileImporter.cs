@@ -1,12 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using NodaTime;
 using Serilog;
 
 namespace SIBR.Storage.CLI.Import
@@ -40,7 +43,7 @@ namespace SIBR.Storage.CLI.Import
         {
             await using var stream = File.OpenRead(file);
             await using var gz = new GZipStream(stream, CompressionMode.Decompress);
-            using var reader = new StreamReader(gz);
+            using var reader = new StreamReader(gz, bufferSize: 8192);
 
             string line;
             while ((line = await reader.ReadLineAsync()) != null)
@@ -63,20 +66,20 @@ namespace SIBR.Storage.CLI.Import
             }
         }
         
-        protected DateTimeOffset? ExtractTimestamp(JToken obj)
+        protected Instant? ExtractTimestamp(JToken obj)
         {
             var timestampToken = obj["clientMeta"]?["timestamp"];
             if (timestampToken == null)
                 return null;
 
-            return DateTimeOffset.FromUnixTimeMilliseconds(timestampToken.Value<long>());
+            return Instant.FromUnixTimeMilliseconds(timestampToken.Value<long>());
         }
 
-        protected DateTimeOffset? ExtractTimestampFromFilename(string filename, string regex)
+        protected Instant? ExtractTimestampFromFilename(string filename, string regex)
         {
             var match = Regex.Match(filename, regex);
             if (match.Success)
-                return DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(match.Groups[1].Value));
+                return Instant.FromUnixTimeMilliseconds(long.Parse(match.Groups[1].Value));
             return null;
         }
     }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
@@ -9,6 +10,10 @@ namespace SIBR.Storage.Data
 {
     public class SiteUpdateStore : BaseStore
     {
+        public SiteUpdateStore(IServiceProvider services) : base(services)
+        {
+        }
+        
         public async Task SaveSiteUpdates(NpgsqlConnection conn, IReadOnlyCollection<SiteUpdate> updates)
         {
             await conn.ExecuteAsync(

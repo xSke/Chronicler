@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.RegularExpressions;
+using System.Collections.Immutable;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
-using Serilog;
+using NodaTime;
 using SIBR.Storage.CLI.Import;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
@@ -16,69 +14,62 @@ namespace SIBR.Storage.CLI
     public class HourlyLogsImporter : S3FileImporter
     {
         private readonly Database _db;
-        private readonly TeamUpdateStore _teamStore;
-        private readonly PlayerUpdateStore _playerStore;
-        private readonly MiscStore _miscStore;
+        private readonly UpdateStore _updateStore;
+        private readonly Guid _sourceId;
 
-        public HourlyLogsImporter(IServiceProvider services) : base(services)
+        public HourlyLogsImporter(IServiceProvider services, Guid sourceId) : base(services)
         {
+            _sourceId = sourceId;
             FileFilter = "blaseball-hourly-*.json.gz";
 
             _db = services.GetRequiredService<Database>();
-            _teamStore = services.GetRequiredService<TeamUpdateStore>();
-            _playerStore = services.GetRequiredService<PlayerUpdateStore>();
-            _miscStore = services.GetRequiredService<MiscStore>();
+            _updateStore = services.GetRequiredService<UpdateStore>();
         }
 
         protected override async Task ProcessFile(string filename, IAsyncEnumerable<JToken> entries)
         {
             await using var conn = await _db.Obtain();
-            await using var tx = await conn.BeginTransactionAsync();
-
-            var teams = new List<TeamUpdate>();
-            var players = new List<PlayerUpdate>();
-            var misc = new List<MiscUpdate>();
-            await foreach (var entry in entries)
+            await using (var tx = await conn.BeginTransactionAsync())
             {
-                var timestamp =
-                    ExtractTimestamp(entry) ??
-                    ExtractTimestampFromFilename(filename, @"blaseball-hourly-(\d+)\.json\.gz");
-                if (timestamp == null)
-                    continue;
 
-                var data = entry["data"];
-                var endpoint = entry["endpoint"]!.Value<string>();
-                switch (endpoint)
+                var updates = new List<EntityUpdate>();
+                await foreach (var entry in entries)
                 {
-                    case "allTeams":
-                        teams.AddRange(ExtractTeamUpdates(timestamp.Value, data));
-                        break;
-                    case "players":
-                        players.AddRange(ExtractPlayerUpdates(timestamp.Value, data));
-                        break;
-                    case "globalEvents":
-                        misc.Add(new MiscUpdate(MiscUpdate.GlobalEvents, timestamp.Value, data));
-                        break;
-                    case "offseasonSetup":
-                        misc.Add(new MiscUpdate(MiscUpdate.OffseasonSetup, timestamp.Value, data));
-                        break;
+                    var timestamp =
+                        ExtractTimestamp(entry) ??
+                        ExtractTimestampFromFilename(filename, @"blaseball-hourly-(\d+)\.json\.gz");
+
+                    if (timestamp != null)
+                        updates.AddRange(ExtractUpdates(entry, timestamp.Value));
                 }
+
+                var res = await _updateStore.SaveUpdates(conn, updates);
+                _logger.Information("- Imported {Updates} new object updates", res);
+                await tx.CommitAsync();
             }
 
-            var teamRes = await _teamStore.SaveTeamUpdates(conn, teams);
-            var playerRes = await _playerStore.SavePlayerUpdates(conn, players);
-            var miscRes = await _miscStore.SaveMiscUpdates(conn, misc);
-            _logger.Information(
-                "- Imported {TeamUpdates} team updates ({TeamObjects} new), {PlayerUpdates} player updates ({PlayerObjects} new objects, {NewPlayers} new players), {MiscUpdates} misc updates ({MiscObjects} new)",
-                teamRes.NewUpdates, teamRes.NewObjects, playerRes.NewUpdates, playerRes.NewObjects, playerRes.NewKeys, miscRes.NewUpdates,
-                miscRes.NewObjects);
-            await tx.CommitAsync();
+            await _updateStore.RefreshMaterializedViews(conn, "player_versions", "team_versions");
         }
 
-        private IEnumerable<PlayerUpdate> ExtractPlayerUpdates(DateTimeOffset timestamp, JToken data) =>
-            data.OfType<JObject>().Select(jo => new PlayerUpdate(timestamp, jo));
+        private IEnumerable<EntityUpdate> ExtractUpdates(JToken entry, Instant timestamp)
+        {
+            var data = entry["data"];
+            var endpoint = entry["endpoint"]!.Value<string>();
+            
+            return endpoint switch
+            {
+                "allTeams" => ExtractTeamUpdates(timestamp, data),
+                "players" => ExtractPlayerUpdates(timestamp, data),
+                "globalEvents" => new[] {EntityUpdate.From(UpdateType.GlobalEvents, _sourceId, timestamp, data)},
+                "offseasonSetup" => new[] {EntityUpdate.From(UpdateType.OffseasonSetup, _sourceId, timestamp, data)},
+                _ => ImmutableList<EntityUpdate>.Empty
+            };
+        }
 
-        private IEnumerable<TeamUpdate> ExtractTeamUpdates(DateTimeOffset timestamp, JToken data) =>
-            data.OfType<JObject>().Select(jo => new TeamUpdate(timestamp, jo));
+        private IEnumerable<EntityUpdate> ExtractPlayerUpdates(Instant timestamp, JToken playerUpdates) =>
+            EntityUpdate.FromArray(UpdateType.Player, _sourceId, timestamp, playerUpdates);
+        
+        private IEnumerable<EntityUpdate> ExtractTeamUpdates(Instant timestamp, JToken teamUpdates) =>
+            EntityUpdate.FromArray(UpdateType.Team, _sourceId, timestamp, teamUpdates);
     }
 }

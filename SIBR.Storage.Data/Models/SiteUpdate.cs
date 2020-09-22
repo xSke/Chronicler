@@ -1,4 +1,5 @@
 ﻿using System;
+using NodaTime;
 using SIBR.Storage.Data.Utils;
 
 namespace SIBR.Storage.Data.Models
@@ -7,10 +8,10 @@ namespace SIBR.Storage.Data.Models
     {
         public Guid Hash { get; set; }
         public string Path { get; set; }
-        public DateTimeOffset Timestamp { get; set; }
+        public Instant Timestamp { get; set; }
         public byte[] Data { get; set; }
 
-        public SiteUpdate(string path, DateTimeOffset timestamp, byte[] data)
+        public SiteUpdate(string path, Instant timestamp, byte[] data)
         {
             Path = path;
             Timestamp = timestamp;
