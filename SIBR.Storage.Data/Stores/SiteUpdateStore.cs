@@ -17,9 +17,10 @@ namespace SIBR.Storage.Data
         public async Task SaveSiteUpdates(NpgsqlConnection conn, IReadOnlyCollection<SiteUpdate> updates)
         {
             await conn.ExecuteAsync(
-                "insert into site_updates(timestamp, path, hash, data) select unnest(@Timestamps), unnest(@Paths), unnest(@Hashes), unnest(@Datas) on conflict do nothing",
+                "insert into site_updates(source_id, timestamp, path, hash, data) select unnest(@SourceIds), unnest(@Timestamps), unnest(@Paths), unnest(@Hashes), unnest(@Datas) on conflict do nothing",
                 new
                 {
+                    SourceIds = updates.Select(u => u.SourceId).ToArray(),
                     Timestamps = updates.Select(u => u.Timestamp).ToArray(),
                     Paths = updates.Select(u => u.Path).ToArray(),
                     Hashes = updates.Select(u => u.Hash).ToArray(),
