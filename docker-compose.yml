@@ -5,8 +5,15 @@ services:
     ports:
       - 127.0.0.1:5432:5432
     environment:
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: blaseball
+      POSTGRES_PASSWORD: password
     volumes:
-      - db_data:/var/lib/postgresql/data 
+      - db_data:/var/lib/postgresql/data
+  ingest:
+    build: .
+    environment:
+      POSTGRES_CONNECTION: 'Host=db;Port=5432;Username=postgres;Password=password;Database=blaseball'
+    volumes:
+      - ./logs:/app/logs
 volumes:
   db_data:

@@ -29,10 +29,7 @@ namespace SIBR.Storage.Ingest
             _db = services.GetRequiredService<Database>();
             _gameUpdateStore = services.GetRequiredService<GameUpdateStore>();
             _clock = services.GetRequiredService<IClock>();
-            _client = new HttpClient
-            {
-                Timeout = TimeSpan.FromSeconds(5)
-            };
+            _client = services.GetRequiredService<HttpClient>();
             Interval = TimeSpan.FromSeconds(1);
         }
 
