@@ -61,6 +61,10 @@ namespace SIBR.Storage.CLI
 
             var result = Parser.Default
                 .ParseArguments<ImportLogsOptions, ImportHourlyOptions, ImportIdolsOptions, Migrations, Ingest>(args);
+            
+            if (result.TypeInfo.Current != typeof(Migrations))
+                // Init sets up NodaTime in a way that breaks Evolve, so don't do it if we're migrating
+                Database.Init();
 
             await result.WithParsedAsync<ImportLogsOptions>(opts =>
                 RunS3(new GameLogsImporter(services, DataSources.IlianaS3), opts));

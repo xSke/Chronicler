@@ -16,7 +16,18 @@ namespace SIBR.Storage.Data
     {
         private readonly string _connectionString;
         private readonly ILogger _logger;
-        
+
+        public static void Init()
+        {
+            NpgsqlConnection.GlobalTypeMapper.UseJsonNet().UseNodaTime();
+            DefaultTypeMap.MatchNamesWithUnderscores = true;
+            SqlMapper.AddTypeHandler(new PassthroughTypeHandler<Instant>(NpgsqlDbType.TimestampTz));
+            SqlMapper.AddTypeHandler(new JsonTypeHandler<JToken>());
+            SqlMapper.AddTypeHandler(new JsonTypeHandler<JValue>());
+            SqlMapper.AddTypeHandler(new JsonTypeHandler<JArray>());
+            SqlMapper.AddTypeHandler(new JsonTypeHandler<JObject>());
+        }
+
         public Database(IServiceProvider services, string connectionString)
         {
             _logger = services.GetRequiredService<ILogger>();
@@ -27,14 +38,6 @@ namespace SIBR.Storage.Data
                     WriteBufferSize = 1024*64
                 }
                 .ConnectionString;
-            
-            NpgsqlConnection.GlobalTypeMapper.UseJsonNet().UseNodaTime();
-            DefaultTypeMap.MatchNamesWithUnderscores = true;
-            SqlMapper.AddTypeHandler(new PassthroughTypeHandler<Instant>(NpgsqlDbType.TimestampTz));
-            SqlMapper.AddTypeHandler(new JsonTypeHandler<JToken>());
-            SqlMapper.AddTypeHandler(new JsonTypeHandler<JValue>());
-            SqlMapper.AddTypeHandler(new JsonTypeHandler<JArray>());
-            SqlMapper.AddTypeHandler(new JsonTypeHandler<JObject>());
         }
 
         public async Task<NpgsqlConnection> Obtain()
