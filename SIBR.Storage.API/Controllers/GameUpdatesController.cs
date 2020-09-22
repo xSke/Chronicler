@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using NodaTime;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
 
@@ -49,7 +50,7 @@ namespace SIBR.Storage.API.Controllers
 
         public class GameUpdatesQueryOptions
         {
-            public DateTimeOffset? After { get; set; }
+            public Instant? After { get; set; }
             [Range(1, 500)] public int Count { get; set; } = 100;
         }
     }

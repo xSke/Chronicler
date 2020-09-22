@@ -10,6 +10,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using NodaTime;
+using NodaTime.Serialization.JsonNet;
 using SIBR.Storage.Data;
 
 namespace SIBR.Storage.API
@@ -30,7 +33,10 @@ namespace SIBR.Storage.API
                 .AddSibrStorage();
 
             services.AddControllers()
-                .AddNewtonsoftJson();
+                .AddNewtonsoftJson(opts =>
+                {
+                    opts.SerializerSettings.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+                });
             
             services.AddCors();
         }

@@ -5,6 +5,7 @@ using Dapper;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using NodaTime;
 using Npgsql;
 using NpgsqlTypes;
 using Serilog;
@@ -27,8 +28,9 @@ namespace SIBR.Storage.Data
                 }
                 .ConnectionString;
             
-            NpgsqlConnection.GlobalTypeMapper.UseJsonNet();
+            NpgsqlConnection.GlobalTypeMapper.UseJsonNet().UseNodaTime();
             DefaultTypeMap.MatchNamesWithUnderscores = true;
+            SqlMapper.AddTypeHandler(new PassthroughTypeHandler<Instant>(NpgsqlDbType.TimestampTz));
             SqlMapper.AddTypeHandler(new JsonTypeHandler<JToken>());
             SqlMapper.AddTypeHandler(new JsonTypeHandler<JValue>());
             SqlMapper.AddTypeHandler(new JsonTypeHandler<JArray>());
@@ -71,6 +73,24 @@ namespace SIBR.Storage.Data
             {
                 return JsonConvert.DeserializeObject<T>((string) value);
             }
+        }
+        
+        private class PassthroughTypeHandler<T>: SqlMapper.TypeHandler<T>
+        {
+            private readonly NpgsqlDbType _type;
+
+            public PassthroughTypeHandler(NpgsqlDbType type)
+            {
+                _type = type;
+            }
+
+            public override void SetValue(IDbDataParameter parameter, T value)
+            {
+                parameter.Value = value;
+                ((NpgsqlParameter) parameter).NpgsqlDbType = _type;
+            }
+
+            public override T Parse(object value) => (T) value;
         }
     }
 }

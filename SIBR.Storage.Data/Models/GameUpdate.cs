@@ -1,22 +1,37 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using NodaTime;
 using SIBR.Storage.Data.Utils;
 
 namespace SIBR.Storage.Data.Models
 {
-    public class GameUpdate: StoredObject
+    public class GameUpdate: IJsonHashedObject
     {
-        public DateTimeOffset Timestamp;
-        public Guid GameId;
+        [JsonIgnore] public Guid SourceId { get; set; }
+        public Instant Timestamp { get; set; }
+        public Guid Hash { get; set; }
+        public JToken Data { get; set; }
+        public Guid GameId { get; set; }
+        [JsonIgnore] public int Season { get; set; }
+        [JsonIgnore] public int Day { get; set; }
 
-        public GameUpdate()
-        {
-        }
+        public static GameUpdate From(Guid sourceId, Instant timestamp, JToken data) =>
+            new GameUpdate
+            {
+                SourceId = sourceId,
+                Timestamp = timestamp,
+                Hash = SibrHash.HashAsGuid(data),
+                Data = data,
+                GameId = TgbUtils.TryGetId(data) ?? throw new ArgumentException("Game did not have id"),
+                Season = data.Value<int>("season"),
+                Day = data.Value<int>("day"),
+            };
 
-        public GameUpdate(DateTimeOffset timestamp, JObject data) : base(data)
-        {
-            Timestamp = timestamp;
-            GameId = TgbUtils.GetId(data);
-        }
+        public static IEnumerable<GameUpdate> FromArray(Guid sourceId, Instant timestamp,
+            IEnumerable<JToken> data) =>
+            data.Select(item => From(sourceId, timestamp, item));
     }
 }

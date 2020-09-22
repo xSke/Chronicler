@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
+using Serilog.Formatting.Json;
 
 namespace SIBR.Storage.Data
 {
@@ -12,10 +14,14 @@ namespace SIBR.Storage.Data
         public static IServiceCollection AddSerilog(this IServiceCollection services)
         {
             var logger = new LoggerConfiguration()
+                .ConfigureForNodaTime(DateTimeZoneProviders.Tzdb)
                 .Enrich.With<ShortSourceContextEnricher>()
+                .MinimumLevel.Debug()
                 .WriteTo.Async(async =>
                 {
-                    async.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{ShortSourceContext,22}] {Message:lj}{NewLine}{Exception}");
+                    async.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{ShortSourceContext}] {Message:lj}{NewLine}{Exception}", restrictedToMinimumLevel: LogEventLevel.Information);
+                    async.File("logs/sibr-.log", LogEventLevel.Debug, rollingInterval: RollingInterval.Day);
+                    async.File(new JsonFormatter(), "logs/sibr-.json", LogEventLevel.Debug, rollingInterval: RollingInterval.Day);
                 })
                 .CreateLogger();
 
@@ -32,12 +38,11 @@ namespace SIBR.Storage.Data
             
             return services
                 .AddSingleton(svc => new Database(svc, connectionString))
-                .AddSingleton<StreamUpdateStore>()
                 .AddSingleton<GameUpdateStore>()
-                .AddSingleton<TeamUpdateStore>()
                 .AddSingleton<PlayerUpdateStore>()
                 .AddSingleton<SiteUpdateStore>()
-                .AddSingleton<MiscStore>();
+                .AddSingleton<UpdateStore>()
+                .AddSingleton<IClock>(SystemClock.Instance);
         }
         
         private class ShortSourceContextEnricher: ILogEventEnricher

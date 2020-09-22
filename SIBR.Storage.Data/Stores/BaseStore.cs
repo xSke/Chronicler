@@ -1,47 +1,54 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Npgsql;
-using NpgsqlTypes;
+using Serilog;
 using SIBR.Storage.Data.Models;
 
 namespace SIBR.Storage.Data
 {
     public abstract class BaseStore
     {
-        protected async Task<int> SaveObjects(NpgsqlConnection conn, IReadOnlyCollection<StoredObject> objects)
+        protected readonly ILogger _logger;
+
+        protected BaseStore(IServiceProvider services)
         {
-            var hashesInDb = (await conn.QueryAsync<Guid>(
-                "select hash from objects where hash = any(@Hashes)", new { Hashes = objects.Select(o => o.Hash).ToArray() }))
-                .ToHashSet();
+            _logger = services.GetRequiredService<ILogger>().ForContext(GetType());
+        }
 
-
-            var dictionary = new Dictionary<Guid, JToken>();
-            foreach (var obj in objects) 
-                dictionary[obj.Hash] = obj.Data;
-
-            var hashes = new List<Guid>();
-            var datas = new List<JToken>();
-            foreach (var (hash, data) in dictionary)
+        public async Task RefreshMaterializedViews(NpgsqlConnection conn, params string[] matViews)
+        {
+            foreach (var matView in matViews)
             {
-                if (hashesInDb.Contains(hash))
-                    continue;
+                var sw = new Stopwatch();
+                sw.Start();
+                await conn.ExecuteAsync($"refresh materialized view concurrently {matView}");
+                sw.Stop();
                 
-                hashes.Add(hash);
-                datas.Add(data);
+                _logger.Information("Refreshed materialized view {ViewName} in {Duration}", matView, sw.Elapsed);
             }
-            
-            if (hashes.Count == 0)
-                return 0;
-            
-            return await conn.ExecuteAsync("insert into objects select unnest(@Hashes), unnest(@Datas)::jsonb on conflict do nothing", new
-            {
-                Hashes = hashes, Datas = datas.Select(s => s.ToString(Formatting.None)).ToArray()
-            });
+        }
+        
+        protected static async Task SaveObjects(NpgsqlConnection conn, IEnumerable<IJsonHashedObject> updates)
+        {
+            var dictionary = new Dictionary<Guid, JToken>();
+            foreach (var obj in updates)
+                dictionary[obj.Hash] = obj.Data;
+            var entries = dictionary.ToList();
+
+            await conn.ExecuteAsync(
+                "insert into objects (hash, data) select unnest(@Hash), unnest(@Data)::jsonb on conflict do nothing",
+                new
+                {
+                    Hash = entries.Select(e => e.Key).ToArray(),
+                    Data = entries.Select(e => e.Value.ToString(Formatting.None)).ToArray()
+                });
         }
     }
 }
