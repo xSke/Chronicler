@@ -7,7 +7,7 @@ using SIBR.Storage.Data.Utils;
 
 namespace SIBR.Storage.Data.Models
 {
-    public class EntityUpdate : BareEntityUpdate, IJsonHashedObject
+    public class EntityUpdate : BareEntityUpdate, IJsonObject
     {
         public JToken Data { get; set; }
 

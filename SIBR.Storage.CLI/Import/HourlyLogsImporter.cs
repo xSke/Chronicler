@@ -29,26 +29,22 @@ namespace SIBR.Storage.CLI
         protected override async Task ProcessFile(string filename, IAsyncEnumerable<JToken> entries)
         {
             await using var conn = await _db.Obtain();
-            await using (var tx = await conn.BeginTransactionAsync())
+            await using var tx = await conn.BeginTransactionAsync();
+            
+            var updates = new List<EntityUpdate>();
+            await foreach (var entry in entries)
             {
+                var timestamp =
+                    ExtractTimestamp(entry) ??
+                    ExtractTimestampFromFilename(filename, @"blaseball-hourly-(\d+)\.json\.gz");
 
-                var updates = new List<EntityUpdate>();
-                await foreach (var entry in entries)
-                {
-                    var timestamp =
-                        ExtractTimestamp(entry) ??
-                        ExtractTimestampFromFilename(filename, @"blaseball-hourly-(\d+)\.json\.gz");
-
-                    if (timestamp != null)
-                        updates.AddRange(ExtractUpdates(entry, timestamp.Value));
-                }
-
-                var res = await _updateStore.SaveUpdates(conn, updates);
-                _logger.Information("- Imported {Updates} new object updates", res);
-                await tx.CommitAsync();
+                if (timestamp != null)
+                    updates.AddRange(ExtractUpdates(entry, timestamp.Value));
             }
 
-            await _updateStore.RefreshMaterializedViews(conn, "player_versions", "team_versions");
+            var res = await _updateStore.SaveUpdates(conn, updates);
+            _logger.Information("- Imported {Updates} new object updates", res);
+            await tx.CommitAsync();
         }
 
         private IEnumerable<EntityUpdate> ExtractUpdates(JToken entry, Instant timestamp)
@@ -71,5 +67,13 @@ namespace SIBR.Storage.CLI
         
         private IEnumerable<EntityUpdate> ExtractTeamUpdates(Instant timestamp, JToken teamUpdates) =>
             EntityUpdate.FromArray(UpdateType.Team, _sourceId, timestamp, teamUpdates);
+
+        public override async Task Run(S3ImportOptions options)
+        {
+            await base.Run(options);
+            
+            await using var conn = await _db.Obtain();
+            await _db.RefreshMaterializedViews(conn, "player_versions", "team_versions");
+        }
     }
 }

@@ -48,7 +48,7 @@ namespace SIBR.Storage.Ingest
             }
 
             if (_refreshViews != null) 
-                await _updateStore.RefreshMaterializedViews(conn, _refreshViews);
+                await _db.RefreshMaterializedViews(conn, _refreshViews);
         }
 
         private async Task<IEnumerable<EntityUpdate>> PollEndpoint(

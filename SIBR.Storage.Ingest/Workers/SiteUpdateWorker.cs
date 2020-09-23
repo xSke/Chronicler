@@ -59,7 +59,7 @@ namespace SIBR.Storage.Ingest
         private async Task<SiteUpdate> FetchResource(string path)
         {
             var resData = await _client.GetByteArrayAsync(new Uri(new Uri("https://www.blaseball.com/"), path));
-            var update = new SiteUpdate(_sourceId, path, _clock.GetCurrentInstant(), resData);
+            var update = SiteUpdate.From(_sourceId, path, _clock.GetCurrentInstant(), resData);
             _logger.Information("- Fetched resource {Path} (hash {Hash})", path, update.Hash);
             return update;
         }

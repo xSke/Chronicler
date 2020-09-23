@@ -26,7 +26,7 @@ namespace SIBR.Storage.CLI.Import
 
         protected abstract Task ProcessFile(string filename, IAsyncEnumerable<JToken> entries);
 
-        public async Task Run(S3ImportOptions options)
+        public virtual async Task Run(S3ImportOptions options)
         {
             _logger.Information("Importing data files from from {Directory}", options.Directory);
 

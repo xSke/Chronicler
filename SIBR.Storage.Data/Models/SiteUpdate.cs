@@ -4,7 +4,7 @@ using SIBR.Storage.Data.Utils;
 
 namespace SIBR.Storage.Data.Models
 {
-    public class SiteUpdate
+    public class SiteUpdate: IHashedObject<byte[]>
     {
         public Guid SourceId { get; set; }
         public Guid Hash { get; set; }
@@ -12,12 +12,20 @@ namespace SIBR.Storage.Data.Models
         public Instant Timestamp { get; set; }
         public byte[] Data { get; set; }
 
-        public SiteUpdate(Guid sourceId, string path, Instant timestamp, byte[] data)
+        public SiteUpdate()
         {
-            Path = path;
-            Timestamp = timestamp;
-            Hash = SibrHash.HashAsGuid(data);
-            Data = data;
+        }
+
+        public static SiteUpdate From(Guid sourceId, string path, Instant timestamp, byte[] data)
+        {
+            return new SiteUpdate
+            {
+                SourceId = sourceId,
+                Path = path,
+                Timestamp = timestamp,
+                Hash = SibrHash.HashAsGuid(data),
+                Data = data,
+            };
         }
     }
 }

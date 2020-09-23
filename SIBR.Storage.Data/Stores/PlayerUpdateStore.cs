@@ -11,13 +11,13 @@ using SqlKata;
 
 namespace SIBR.Storage.Data
 {
-    public class PlayerUpdateStore: BaseStore
+    public class PlayerUpdateStore
     {
         private readonly Database _db;
 
-        public PlayerUpdateStore(IServiceProvider services): base(services)
+        public PlayerUpdateStore(Database db)
         {
-            _db = services.GetRequiredService<Database>();
+            _db = db;
         }
 
         public async Task<IEnumerable<Guid>> GetAllPlayerIds(NpgsqlConnection conn) => 

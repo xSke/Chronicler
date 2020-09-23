@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,7 +31,7 @@ namespace SIBR.Storage.Data
 
         public Database(IServiceProvider services, string connectionString)
         {
-            _logger = services.GetRequiredService<ILogger>();
+            _logger = services.GetRequiredService<ILogger>().ForContext<Database>();
             _connectionString = new NpgsqlConnectionStringBuilder(connectionString)
                 {
                     Enlist = false,
@@ -46,7 +47,20 @@ namespace SIBR.Storage.Data
             await connection.OpenAsync();
             return connection;
         }
+        
+        public async Task RefreshMaterializedViews(NpgsqlConnection conn, params string[] matViews)
+        {
+            foreach (var matView in matViews)
+            {
+                var sw = new Stopwatch();
+                sw.Start();
+                await conn.ExecuteAsync($"refresh materialized view concurrently {matView}");
+                sw.Stop();
 
+                _logger.Information("Refreshed materialized view {ViewName} in {Duration}", matView, sw.Elapsed);
+            }
+        }
+        
         public async Task RunMigrations()
         {
             await using var connection = await Obtain();

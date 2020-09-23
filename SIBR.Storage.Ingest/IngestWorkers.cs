@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 using SIBR.Storage.Data.Models;
 
@@ -16,7 +15,7 @@ namespace SIBR.Storage.Ingest
                 (UpdateType.Tributes, "https://www.blaseball.com/api/getTribute"),
                 (UpdateType.GlobalEvents, "https://www.blaseball.com/database/globalEvents"),
                 (UpdateType.Sim, "https://www.blaseball.com/database/simulationData"),
-            }, new []{"idols_versions", "tributes_versions"}),
+            }, new []{"idols_versions", "tributes_by_player", "tributes_hourly"}),
             new MiscEndpointWorker(services, Duration.FromMinutes(10),  sourceId, new[]
             {
                 (UpdateType.OffseasonSetup, "https://www.blaseball.com/database/offseasonSetup"),

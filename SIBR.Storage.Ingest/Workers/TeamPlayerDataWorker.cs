@@ -1,14 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using NodaTime;
-using Npgsql;
-using Serilog;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
 
@@ -53,7 +50,7 @@ namespace SIBR.Storage.Ingest
                 _logger.Information("Saved {Updates} team and player updates", res);
             }
 
-            await _updateStore.RefreshMaterializedViews(conn, "team_versions", "player_versions");
+            await _db.RefreshMaterializedViews(conn, "team_versions", "player_versions");
         }
 
         private async Task<List<EntityUpdate>> FetchPlayersChunked(IEnumerable<Guid> playerIds, int chunkSize)

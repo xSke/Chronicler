@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
-using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 using Npgsql;
+using Serilog;
 using SIBR.Storage.Data.Models;
 using SqlKata;
 using SqlKata.Compilers;
@@ -13,13 +13,17 @@ using SqlKata.Execution;
 
 namespace SIBR.Storage.Data
 {
-    public class GameUpdateStore : BaseStore
+    public class GameUpdateStore
     {
+        private readonly ILogger _logger;
         private readonly Database _db;
+        private readonly ObjectStore _objectStore;
 
-        public GameUpdateStore(IServiceProvider services) : base(services)
+        public GameUpdateStore(ILogger logger, Database db, ObjectStore objectStore)
         {
-            _db = services.GetRequiredService<Database>();
+            _logger = logger;
+            _db = db;
+            _objectStore = objectStore;
         }
 
         public async Task<IEnumerable<GameUpdate>> GetGameUpdates(GameUpdateQueryOptions opts)
@@ -46,21 +50,38 @@ namespace SIBR.Storage.Data
             if (log)
                 LogUpdates(updates);
 
-            await SaveObjects(conn, updates);
+            await _objectStore.SaveObjects(conn, updates);
             await SaveGameUpdatesTable(conn, updates);
         }
 
         private static async Task SaveGameUpdatesTable(NpgsqlConnection conn, IReadOnlyCollection<GameUpdate> updates)
         {
-            await conn.ExecuteAsync(@"
-insert into game_updates (source_id, timestamp, game_id, hash, season, day)
+            await conn.ExecuteAsync(@"insert into game_updates (source_id, timestamp, game_id, hash, season, day)
 select unnest(@SourceId),
        unnest(@Timestamp),
-       unnest(@GameId), 
+       unnest(@GameId),
        unnest(@Hash),
        unnest(@Season),
        unnest(@Day)
 on conflict do nothing;
+
+insert into game_updates_unique (hash, game_id, timestamp, data, season, day, search_tsv)
+select distinct on (hash) hash,
+       game_id,
+       timestamp,
+       data,
+       season,
+       day,
+       to_tsvector('english', data ->> 'lastUpdate')
+from (select unnest(@Timestamp) as timestamp,
+             unnest(@GameId)    as game_id,
+             unnest(@Hash)      as hash,
+             unnest(@Season)    as season,
+             unnest(@Day)       as day
+     ) as new_updates
+         inner join objects using (hash)
+order by hash, timestamp
+on conflict (hash) do update set timestamp = least(game_updates_unique.timestamp, excluded.timestamp)
 ", new
             {
                 SourceId = updates.Select(u => u.SourceId).ToArray(),

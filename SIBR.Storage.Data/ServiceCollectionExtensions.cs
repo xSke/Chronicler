@@ -38,10 +38,12 @@ namespace SIBR.Storage.Data
             
             return services
                 .AddSingleton(svc => new Database(svc, connectionString))
+                .AddSingleton<ObjectStore>()
+                .AddSingleton<UpdateStore>()
                 .AddSingleton<GameUpdateStore>()
                 .AddSingleton<PlayerUpdateStore>()
                 .AddSingleton<SiteUpdateStore>()
-                .AddSingleton<UpdateStore>()
+                .AddSingleton<IdolsTributesStore>()
                 .AddSingleton<IClock>(SystemClock.Instance);
         }
         

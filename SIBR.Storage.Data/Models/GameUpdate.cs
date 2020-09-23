@@ -8,7 +8,7 @@ using SIBR.Storage.Data.Utils;
 
 namespace SIBR.Storage.Data.Models
 {
-    public class GameUpdate: IJsonHashedObject
+    public class GameUpdate: IJsonObject
     {
         [JsonIgnore] public Guid SourceId { get; set; }
         public Instant Timestamp { get; set; }
