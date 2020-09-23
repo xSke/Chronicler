@@ -12,32 +12,19 @@ namespace SIBR.Storage.CLI
 {
     class Program
     {
-        private interface IImportOptions
+        [Verb("import")]
+        public class ImportOptions
         {
+            [Value(0, MetaName = "type")]
+            public string Type { get; set; }
+            
+            [Value(1, MetaName = "sourceid")]
+            public Guid SourceId { get; set; }
+
+            [Value(2, MetaName = "directory", HelpText = "The directory to read log files from")]
             public string Directory { get; set; }
         }
         
-        [Verb("import-logs")]
-        public class ImportLogsOptions: IImportOptions
-        {
-            [Value(0, MetaName = "directory", HelpText = "The directory to read log files from")]
-            public string Directory { get; set; }
-        }
-
-        [Verb("import-hourly")]
-        public class ImportHourlyOptions: IImportOptions
-        {
-            [Value(0, MetaName = "directory", HelpText = "The directory to read hourly log files from")]
-            public string Directory { get; set; }
-        }
-
-        [Verb("import-idols")]
-        public class ImportIdolsOptions: IImportOptions
-        {
-            [Value(0, MetaName = "directory", HelpText = "The directory to read idol log files from")]
-            public string Directory { get; set; }
-        }
-
         [Verb("migrations")]
         public class Migrations
         {
@@ -60,20 +47,13 @@ namespace SIBR.Storage.CLI
                 .BuildServiceProvider();
 
             var result = Parser.Default
-                .ParseArguments<ImportLogsOptions, ImportHourlyOptions, ImportIdolsOptions, Migrations, Ingest>(args);
+                .ParseArguments<ImportOptions, Migrations, Ingest>(args);
             
             if (result.TypeInfo.Current != typeof(Migrations))
                 // Init sets up NodaTime in a way that breaks Evolve, so don't do it if we're migrating
                 Database.Init();
 
-            await result.WithParsedAsync<ImportLogsOptions>(opts =>
-                RunS3(new GameLogsImporter(services, DataSources.IlianaS3), opts));
-
-            await result.WithParsedAsync<ImportHourlyOptions>(opts =>
-                RunS3(new HourlyLogsImporter(services, DataSources.IlianaS3), opts));
-
-            await result.WithParsedAsync<ImportIdolsOptions>(opts =>
-                RunS3(new IdolLogsImporter(services, DataSources.IlianaS3), opts));
+            await result.WithParsedAsync<ImportOptions>(opts => RunImport(services, opts));
 
             await result.WithParsedAsync<Migrations>(_ =>
                 services.GetRequiredService<Database>().RunMigrations());
@@ -85,9 +65,17 @@ namespace SIBR.Storage.CLI
             });
         }
 
-        static Task RunS3(S3FileImporter importer, IImportOptions opts)
+        private static async Task RunImport(ServiceProvider services, ImportOptions opts)
         {
-            return importer.Run(new S3ImportOptions
+            S3FileImporter importer = opts.Type switch
+            {
+                "hourly" => new HourlyLogsImporter(services, opts.SourceId),
+                "gamelogs" => new GameLogsImporter(services, opts.SourceId),
+                "idols" => new IdolLogsImporter(services, opts.SourceId),
+                "mongotributes" => new MongodbTributesImporter(services, opts.SourceId),
+                _ => throw new ArgumentException($"Unknown import type {opts.Type}")
+            };
+            await importer.Run(new S3ImportOptions
             {
                 Directory = opts.Directory
             });
