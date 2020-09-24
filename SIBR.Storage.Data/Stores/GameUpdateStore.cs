@@ -9,8 +9,6 @@ using Serilog;
 using SIBR.Storage.Data.Models;
 using SIBR.Storage.Data.Utils;
 using SqlKata;
-using SqlKata.Compilers;
-using SqlKata.Execution;
 
 namespace SIBR.Storage.Data
 {
@@ -62,6 +60,7 @@ namespace SIBR.Storage.Data
             if (opts.Day != null) q.Where("day", opts.Day.Value);
             if (opts.Game != null) q.WhereIn("game_id", opts.Game);
             if (opts.After != null) q.Where("timestamp", ">", opts.After.Value);
+            if (opts.Search != null) q.WhereRaw("search_tsv @@ websearch_to_tsquery(?)", opts.Search);
 
             return _db.QueryKataAsync<GameUpdateView>(q);
         }
@@ -153,6 +152,7 @@ drop table tmp_gameupdates;
             public Guid[] Game { get; set; }
             public Instant? After { get; set; }
             public int Count { get; set; }
+            public string Search { get; set; }
         }
 
         public class GameQueryOptions

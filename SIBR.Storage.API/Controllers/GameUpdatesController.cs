@@ -32,7 +32,8 @@ namespace SIBR.Storage.API.Controllers
                 Day = opts.Day,
                 After = opts.After,
                 Count = opts.Count,
-                Game = opts.Game
+                Game = opts.Game,
+                Search = opts.Search
             });
             return Ok(res);
         }
@@ -46,6 +47,7 @@ namespace SIBR.Storage.API.Controllers
             public Guid[] Game { get; set; }
             public Instant? After { get; set; }
             [Range(1, 5000)] public int Count { get; set; } = 100;
+            public string? Search { get; set; }
         }
     }
 }
