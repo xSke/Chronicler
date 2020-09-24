@@ -31,7 +31,7 @@ namespace SIBR.Storage.CLI
             var streamUpdates = new List<EntityUpdate>();
             var miscUpdates = new List<EntityUpdate>();
             var gameUpdates = new List<GameUpdate>();
-
+ 
             await foreach (var entry in entries)
             {
                 var timestamp = ExtractTimestamp(entry);
@@ -41,10 +41,10 @@ namespace SIBR.Storage.CLI
                 var root = FindStreamRoot(entry as JObject);
                 streamUpdates.Add(EntityUpdate.From(UpdateType.Stream, _sourceId, timestamp.Value, root));
 
-                if (entry["value"]?["games"]?["schedule"] is JArray scheduleObj)
+                if (root["value"]?["games"]?["schedule"] is JArray scheduleObj)
                     gameUpdates.AddRange(GameUpdate.FromArray(_sourceId, timestamp.Value, scheduleObj));
 
-                if (entry["value"]?["games"]?["sim"] is JObject simObj)
+                if (root["value"]?["games"]?["sim"] is JObject simObj)
                     miscUpdates.Add(EntityUpdate.From(UpdateType.Sim, _sourceId, timestamp.Value, simObj));
             }
 
