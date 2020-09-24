@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data;
 using System.Diagnostics;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +28,8 @@ namespace SIBR.Storage.Data
             SqlMapper.AddTypeHandler(new JsonTypeHandler<JValue>());
             SqlMapper.AddTypeHandler(new JsonTypeHandler<JArray>());
             SqlMapper.AddTypeHandler(new JsonTypeHandler<JObject>());
+            SqlMapper.AddTypeHandler(new JsonTypeHandler<JObject>());
+            SqlMapper.AddTypeHandler(new STJsonTypeHandler());
         }
 
         public Database(IServiceProvider services, string connectionString)
@@ -89,6 +92,23 @@ namespace SIBR.Storage.Data
             public override T Parse(object value)
             {
                 return JsonConvert.DeserializeObject<T>((string) value);
+            }
+        }
+        
+        private class STJsonTypeHandler : SqlMapper.TypeHandler<JsonElement>
+        {
+            public override void SetValue(IDbDataParameter parameter, JsonElement value)
+            {
+                var p = (NpgsqlParameter) parameter;
+                
+                p.Value = value.GetRawText();
+                p.NpgsqlDbType = NpgsqlDbType.Jsonb;
+            }
+
+            public override JsonElement Parse(object value)
+            {
+                using var doc = JsonDocument.Parse((string) value);
+                return doc.RootElement.Clone();
             }
         }
         

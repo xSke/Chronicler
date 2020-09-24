@@ -23,8 +23,8 @@ namespace SIBR.Storage.Data
         public async Task<EntityUpdate> GetLastUpdate(NpgsqlConnection conn, UpdateType type, Guid? entityId = null)
         {
             var query = entityId != null
-                ? "select * from updates where type = @Type and entity_id = @EntityId order by timestamp desc limit 1"
-                : "select * from updates where type = @Type order by timestamp desc limit 1";
+                ? "select * from updates inner join objects using (hash) where type = @Type and entity_id = @EntityId order by timestamp desc limit 1"
+                : "select * from updates inner join objects using (hash) where type = @Type order by timestamp desc limit 1";
             return await conn.QuerySingleOrDefaultAsync<EntityUpdate>(query, new {Type = type, EntityId = entityId});
         }
 

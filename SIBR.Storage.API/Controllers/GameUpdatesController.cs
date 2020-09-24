@@ -1,16 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
+using SIBR.Storage.API.Utils;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
 
 namespace SIBR.Storage.API.Controllers
 {
     [ApiController]
-    [Route("api")]
+    [Route("api/games/updates")]
     public class GameUpdatesController: ControllerBase
     {
         private readonly GameUpdateStore _store;
@@ -20,38 +20,32 @@ namespace SIBR.Storage.API.Controllers
             _store = store;
         }
 
-        [Route("games/updates")]
-        public async Task<ActionResult<IEnumerable<GameUpdate>>> GetUpdatesBySeasonDay([FromQuery] int? season, [FromQuery] int? day, [FromQuery] GameUpdatesQueryOptions opts)
+        [Route("")]
+        public ActionResult<IAsyncEnumerable<GameUpdateView>> GetUpdatesBySeasonDay([FromQuery] GameUpdatesQueryOptions opts)
         {
-            if (day != null && season == null)
-                return BadRequest("Can't query by only day, must also include season");
-            
-            var res = await _store.GetGameUpdates(new GameUpdateStore.GameUpdateQueryOptions
+            if ((opts.Season != null) != (opts.Day != null))
+                return BadRequest("Must query by both season and day");
+
+            var res = _store.GetGameUpdates(new GameUpdateStore.GameUpdateQueryOptions
             {
-                Season = season,
-                Day = day,
+                Season = opts.Season,
+                Day = opts.Day,
                 After = opts.After,
-                Count = opts.Count
+                Count = opts.Count,
+                Game = opts.Game
             });
             return Ok(res);
         }
         
-        [Route("games/{game}/updates")]
-        public async Task<ActionResult<IEnumerable<GameUpdate>>> GetUpdatesByGame(Guid game, [FromQuery] GameUpdatesQueryOptions opts)
-        {
-            var res = await _store.GetGameUpdates(new GameUpdateStore.GameUpdateQueryOptions
-            {
-                Game = game,
-                After = opts.After,
-                Count = opts.Count
-            });
-            return Ok(res);
-        }
-
         public class GameUpdatesQueryOptions
         {
+            public int? Season { get; set; }
+            public int? Day { get; set; }
+            
+            [BindProperty(BinderType = typeof(CommaSeparatedBinder))]
+            public Guid[] Game { get; set; }
             public Instant? After { get; set; }
-            [Range(1, 500)] public int Count { get; set; } = 100;
+            [Range(1, 5000)] public int Count { get; set; } = 100;
         }
     }
 }

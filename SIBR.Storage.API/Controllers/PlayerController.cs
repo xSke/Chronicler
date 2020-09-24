@@ -11,13 +11,20 @@ namespace SIBR.Storage.API.Controllers
 {
     [ApiController]
     [Route("api/players")]
-    public class PlayerController: ControllerBase
+    public class PlayerController : ControllerBase
     {
         private readonly PlayerUpdateStore _playerUpdateStore;
 
         public PlayerController(PlayerUpdateStore playerUpdateStore)
         {
             _playerUpdateStore = playerUpdateStore;
+        }
+        
+        [Route("")]
+        public async Task<ActionResult<List<PlayerVersion>>> GetPlayers([FromQuery] Instant? before = null)
+        {
+            var updates = _playerUpdateStore.GetPlayerVersions(null, before);
+            return Ok(await updates.Take(100).ToListAsync());
         }
 
         [Route("{playerId}")]
@@ -27,19 +34,27 @@ namespace SIBR.Storage.API.Controllers
             var updates = _playerUpdateStore.GetPlayerVersions(playerId, at?.Plus(Duration.FromMilliseconds(1)));
             return Ok(await updates.FirstAsync());
         }
-        
+
         [Route("{playerId}/updates")]
-        public async Task<ActionResult<List<PlayerVersion>>> GetPlayerUpdates(Guid playerId, [FromQuery] Instant? before = null)
+        public async Task<ActionResult<List<PlayerVersion>>> GetPlayerUpdates(Guid playerId,
+            [FromQuery] Instant? before = null)
         {
             var updates = _playerUpdateStore.GetPlayerVersions(playerId, before);
             return Ok(await updates.Take(100).ToListAsync());
         }
-        
+
         [Route("updates")]
         public async Task<ActionResult<List<PlayerVersion>>> GetAllPlayerUpdates([FromQuery] Instant? before = null)
         {
             var updates = _playerUpdateStore.GetPlayerVersions(null, before);
             return Ok(await updates.Take(100).ToListAsync());
+        }
+
+        [Route("names")]
+        public async Task<Dictionary<Guid, string>> GetPlayerNames()
+        {
+            var players = await _playerUpdateStore.GetAllPlayerNames();
+            return players.ToDictionary(p => p.PlayerId, p => p.Name);
         }
     }
 }

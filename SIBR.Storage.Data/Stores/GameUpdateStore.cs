@@ -7,6 +7,7 @@ using NodaTime;
 using Npgsql;
 using Serilog;
 using SIBR.Storage.Data.Models;
+using SIBR.Storage.Data.Utils;
 using SqlKata;
 using SqlKata.Compilers;
 using SqlKata.Execution;
@@ -18,6 +19,7 @@ namespace SIBR.Storage.Data
         private readonly ILogger _logger;
         private readonly Database _db;
         private readonly ObjectStore _objectStore;
+        private readonly HashSet<Guid> _knownGames = new HashSet<Guid>(); 
 
         public GameUpdateStore(ILogger logger, Database db, ObjectStore objectStore)
         {
@@ -26,22 +28,42 @@ namespace SIBR.Storage.Data
             _objectStore = objectStore;
         }
 
-        public async Task<IEnumerable<GameUpdate>> GetGameUpdates(GameUpdateQueryOptions opts)
+        public IAsyncEnumerable<Game> GetGames(GameQueryOptions opts)
         {
-            await using var conn = await _db.Obtain();
+            var q = new Query("games_view");
+            
+            if (opts.Reverse)
+                q.OrderByDesc("season", "day");
+            else
+                q.OrderBy("season", "day");
+
+            if (opts.Season != null) q.Where("season", opts.Season.Value);
+            if (opts.Day != null) q.Where("day", opts.Day.Value);
+            if (opts.After != null) q.Where("start_time", ">", opts.After.Value);
+            if (opts.HasOutcomes != null) q.Where("has_outcomes", opts.HasOutcomes.Value);
+            if (opts.HasStarted != null) q.Where("has_started", opts.HasStarted.Value);
+            if (opts.HasFinished != null) q.Where("has_finished", opts.HasFinished.Value);
+            if (opts.Team != null) q.Where(q => q.WhereIn("home_team", opts.Team).OrWhereIn("away_team", opts.Team));
+            if (opts.Pitcher != null) q.Where(q => q.WhereIn("home_pitcher", opts.Pitcher).OrWhereIn("away_pitcher", opts.Pitcher));
+            if (opts.Weather != null) q.WhereIn("weather", opts.Weather);
+            if (opts.Count != null) q.Limit(opts.Count.Value);
+
+            return _db.QueryKataAsync<Game>(q);
+        }
+
+        public IAsyncEnumerable<GameUpdateView> GetGameUpdates(GameUpdateQueryOptions opts)
+        {
             var q = new Query("game_updates_unique")
+                .Select("game_id", "timestamp", "data")
                 .OrderBy("timestamp")
                 .Limit(opts.Count);
 
             if (opts.Season != null) q.Where("season", opts.Season.Value);
             if (opts.Day != null) q.Where("day", opts.Day.Value);
-            if (opts.Game != null) q.Where("game_updates.game_id", opts.Game.Value);
+            if (opts.Game != null) q.WhereIn("game_id", opts.Game);
             if (opts.After != null) q.Where("timestamp", ">", opts.After.Value);
 
-            var kata = new QueryFactory(conn, new PostgresCompiler());
-            var res = await kata.GetAsync<GameUpdate>(q);
-
-            return res;
+            return _db.QueryKataAsync<GameUpdateView>(q);
         }
 
         public async Task SaveGameUpdates(NpgsqlConnection conn,
@@ -56,32 +78,38 @@ namespace SIBR.Storage.Data
 
         private static async Task SaveGameUpdatesTable(NpgsqlConnection conn, IReadOnlyCollection<GameUpdate> updates)
         {
-            await conn.ExecuteAsync(@"insert into game_updates (source_id, timestamp, game_id, hash, season, day)
-select unnest(@SourceId),
-       unnest(@Timestamp),
-       unnest(@GameId),
-       unnest(@Hash),
-       unnest(@Season),
-       unnest(@Day)
+            await conn.ExecuteAsync(@"
+create temporary table tmp_gameupdates as
+    select
+        unnest(@SourceId) as source_id,
+        unnest(@Timestamp) as timestamp,
+        unnest(@GameId) as game_id,
+        unnest(@Hash) as hash,
+        unnest(@Season) as season,
+        unnest(@Day) as day;
+
+-- Update 'raw' game updates table
+insert into game_updates (source_id, timestamp, game_id, hash, season, day)
+    select source_id, timestamp, game_id, hash, season, day from tmp_gameupdates
 on conflict do nothing;
 
+-- Update deduplicated/hydrated game updates table
 insert into game_updates_unique (hash, game_id, timestamp, data, season, day, search_tsv)
-select distinct on (hash) hash,
-       game_id,
-       timestamp,
-       data,
-       season,
-       day,
-       to_tsvector('english', data ->> 'lastUpdate')
-from (select unnest(@Timestamp) as timestamp,
-             unnest(@GameId)    as game_id,
-             unnest(@Hash)      as hash,
-             unnest(@Season)    as season,
-             unnest(@Day)       as day
-     ) as new_updates
-         inner join objects using (hash)
+select distinct on (hash)
+    hash,
+    game_id,
+    timestamp,
+    data,
+    season,
+    day,
+    to_tsvector('english', data ->> 'lastUpdate')
+from tmp_gameupdates
+    inner join objects using (hash)
 order by hash, timestamp
-on conflict (hash) do update set timestamp = least(game_updates_unique.timestamp, excluded.timestamp)
+on conflict (hash) do update set 
+    timestamp = least(game_updates_unique.timestamp, excluded.timestamp);
+
+drop table tmp_gameupdates;
 ", new
             {
                 SourceId = updates.Select(u => u.SourceId).ToArray(),
@@ -107,13 +135,39 @@ on conflict (hash) do update set timestamp = least(game_updates_unique.timestamp
             }
         }
 
+        public async Task RefreshViewsIfNewGames(NpgsqlConnection conn, IReadOnlyCollection<GameUpdate> updates)
+        {
+            var anyNewGames = false;
+            foreach (var gameUpdate in updates)
+                if (_knownGames.Add(gameUpdate.GameId))
+                    anyNewGames = true;
+
+            if (anyNewGames)
+                await _db.RefreshMaterializedViews(conn, "games");
+        }
+
         public class GameUpdateQueryOptions
         {
             public int? Season { get; set; }
             public int? Day { get; set; }
-            public Guid? Game { get; set; }
+            public Guid[] Game { get; set; }
             public Instant? After { get; set; }
             public int Count { get; set; }
+        }
+
+        public class GameQueryOptions
+        {
+            public int? Season;
+            public int? Day;
+            public Instant? After;
+            public bool Reverse;
+            public int? Count;
+            public bool? HasOutcomes;
+            public bool? HasFinished;
+            public bool? HasStarted;
+            public Guid[] Team;
+            public Guid[] Pitcher;
+            public int[] Weather;
         }
     }
 }

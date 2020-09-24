@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
@@ -6,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using NodaTime;
+using Npgsql;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
 using SIBR.Storage.Data.Utils;
@@ -19,9 +21,7 @@ namespace SIBR.Storage.Ingest
         private readonly GameUpdateStore _gameUpdateStore;
         private readonly HttpClient _client;
         private readonly IClock _clock;
-
-        private (int, int) _lastSeasonDay;
-        private Instant? _lastSeasonDayQuery;
+        private readonly UpdateStore _updateStore;
 
         public GameEndpointWorker(IServiceProvider services, Guid sourceId) : base(services)
         {
@@ -30,53 +30,49 @@ namespace SIBR.Storage.Ingest
             _gameUpdateStore = services.GetRequiredService<GameUpdateStore>();
             _clock = services.GetRequiredService<IClock>();
             _client = services.GetRequiredService<HttpClient>();
+            _updateStore = services.GetRequiredService<UpdateStore>();
             Interval = TimeSpan.FromSeconds(1);
+            Offset = TimeSpan.FromMilliseconds(500);
         }
 
         protected override async Task RunInterval()
         {
-            var (season, day) = await TryGetSeasonDay();
-            await FetchGamesInner(season, day);
+            await using var conn = await _db.Obtain();
+            var sim = await _updateStore.GetLastUpdate(conn, UpdateType.Sim);
+            
+            await FetchGamesInner(conn, sim.Data.Value<int>("season"), sim.Data.Value<int>("day"));
         }
 
-        private async Task FetchGamesInner(int season, int day)
+        private async Task FetchGamesInner(NpgsqlConnection conn, int season, int day)
+        {
+            var games = await FetchGamesAt(season, day);
+            
+            await using (var tx = await conn.BeginTransactionAsync())
+            {
+                await _gameUpdateStore.SaveGameUpdates(conn, games);
+                await tx.CommitAsync();
+            }
+
+            await _gameUpdateStore.RefreshViewsIfNewGames(conn, games);
+        }
+
+        private async Task<List<GameUpdate>> FetchGamesAt(int season, int day)
         {
             var sw = new Stopwatch();
             sw.Start();
-            var gamesStr = await _client.GetStringAsync($"https://www.blaseball.com/database/games?season={season}&day={day}");
+            var jsonStr  = await _client.GetStringAsync($"https://www.blaseball.com/database/games?season={season}&day={day}");
             sw.Stop();
             var timestamp = _clock.GetCurrentInstant();
 
-            var gamesArr = JArray.Parse(gamesStr);
+            var json = JArray.Parse(jsonStr);
             _logger.Information("Polled games endpoint at season {Season} day {Day} (combined hash {Hash}, took {Duration})",
                 season,
-                day, SibrHash.HashAsGuid(gamesArr), sw.Elapsed);
-
-            await using var conn = await _db.Obtain();
-            await _gameUpdateStore.SaveGameUpdates(conn, gamesArr
+                day, SibrHash.HashAsGuid(json), sw.Elapsed);
+            
+            var updates = json
                 .Select(game => GameUpdate.From(_sourceId, timestamp, game))
-                .ToList());
-        }
-
-        private async ValueTask<(int, int)> TryGetSeasonDay()
-        {
-            var now = _clock.GetCurrentInstant();
-
-            if (_lastSeasonDayQuery == null ||
-                now.InUtc().Minute != _lastSeasonDayQuery.Value.InUtc().Minute && now.InUtc().Second > 0)
-            {
-                _lastSeasonDay = await FetchSeasonDay();
-                _lastSeasonDayQuery = now;
-            }
-
-            return _lastSeasonDay;
-        }
-
-        private async Task<(int, int)> FetchSeasonDay()
-        {
-            var simObjStr = await _client.GetStringAsync("https://www.blaseball.com/database/simulationData");
-            var simObj = JObject.Parse(simObjStr);
-            return (simObj.Value<int>("season"), simObj.Value<int>("day"));
+                .ToList();
+            return updates;
         }
     }
 }

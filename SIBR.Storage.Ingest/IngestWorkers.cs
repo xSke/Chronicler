@@ -15,7 +15,7 @@ namespace SIBR.Storage.Ingest
                 (UpdateType.Tributes, "https://www.blaseball.com/api/getTribute"),
                 (UpdateType.GlobalEvents, "https://www.blaseball.com/database/globalEvents"),
                 (UpdateType.Sim, "https://www.blaseball.com/database/simulationData"),
-            }, new []{"idols_versions", "tributes_by_player", "tributes_hourly"}),
+            }, new []{"idols_versions", "tributes_by_player", "tributes_hourly"}) { Offset = TimeSpan.FromSeconds(1) },
             new MiscEndpointWorker(services, Duration.FromMinutes(10),  sourceId, new[]
             {
                 (UpdateType.OffseasonSetup, "https://www.blaseball.com/database/offseasonSetup"),
@@ -23,7 +23,8 @@ namespace SIBR.Storage.Ingest
             new SiteUpdateWorker(services, sourceId),
             new StreamDataWorker(services, sourceId), 
             new TeamPlayerDataWorker(services, sourceId),
-            new GameEndpointWorker(services, sourceId), 
+            new GameEndpointWorker(services, sourceId),
+            new FutureGamesWorker(services, sourceId)
         };
     }
 }

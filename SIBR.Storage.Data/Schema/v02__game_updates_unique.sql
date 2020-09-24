@@ -42,3 +42,5 @@ from (select distinct hash from game_updates) as hashes
                              order by timestamp
                              limit 1) as game_update on true
 on conflict (hash) do update set timestamp = least(game_updates_unique.timestamp, excluded.timestamp);
+
+create index game_updates_unique_data_idx2 on game_updates_unique using gin (data jsonb_path_ops, timestamp);

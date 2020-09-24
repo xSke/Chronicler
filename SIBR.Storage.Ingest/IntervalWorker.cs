@@ -6,8 +6,8 @@ namespace SIBR.Storage.Ingest
 {
     public abstract class IntervalWorker : BaseWorker
     {
-        public TimeSpan Interval { get; set; }
-        
+        protected TimeSpan Interval { get; set; }
+        public TimeSpan Offset { get; set; }
 
         protected abstract Task RunInterval();
 
@@ -34,7 +34,8 @@ namespace SIBR.Storage.Ingest
                 var _ = Inner();
 
                 // (arbitrary, just for tick alignment mostly)
-                var epoch = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
+                var epoch = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero)
+                    .Add(Offset);
                 var waitTime = TimeSpan.FromTicks(Interval.Ticks - (DateTimeOffset.UtcNow - epoch).Ticks % Interval.Ticks);
                 if (waitTime > TimeSpan.Zero)
                     await Task.Delay(waitTime);

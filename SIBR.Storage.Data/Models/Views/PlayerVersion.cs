@@ -1,5 +1,5 @@
 using System;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
 using NodaTime;
 
 namespace SIBR.Storage.Data.Models
@@ -10,6 +10,6 @@ namespace SIBR.Storage.Data.Models
         public Instant LastSeen { get; set; }
         public Guid PlayerId { get; set; }
         public Guid Hash { get; set; }
-        public JObject Data { get; set; }
+        public JsonElement Data { get; set; }
     }
 }

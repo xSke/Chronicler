@@ -49,15 +49,18 @@ namespace SIBR.Storage.CLI
             }
 
             await using var conn = await _db.Obtain();
-            await using var tx = await conn.BeginTransactionAsync();
+            await using (var tx = await conn.BeginTransactionAsync())
+            {
+                var streamRes = await _updateStore.SaveUpdates(conn, streamUpdates, false);
+                await _gameStore.SaveGameUpdates(conn, gameUpdates, false);
+                var miscRes = await _updateStore.SaveUpdates(conn, miscUpdates, false);
+                _logger.Information(
+                    "- Imported {StreamUpdates} stream updates, {GameUpdates} game updates, {MiscUpdates} misc updates",
+                    streamRes, gameUpdates.Count, miscRes);
+                await tx.CommitAsync();
+            }
 
-            var streamRes = await _updateStore.SaveUpdates(conn, streamUpdates, false); 
-            await _gameStore.SaveGameUpdates(conn, gameUpdates, false);
-            var miscRes = await _updateStore.SaveUpdates(conn, miscUpdates, false);
-            _logger.Information(
-                "- Imported {StreamUpdates} stream updates, {GameUpdates} game updates, {MiscUpdates} misc updates",
-                streamRes, gameUpdates.Count, miscRes);
-            await tx.CommitAsync();
+            await _gameStore.RefreshViewsIfNewGames(conn, gameUpdates);
         }
 
         private JObject FindStreamRoot(JToken value)

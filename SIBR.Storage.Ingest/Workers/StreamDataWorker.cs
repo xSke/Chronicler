@@ -47,9 +47,7 @@ namespace SIBR.Storage.Ingest
             var updates = TgbUtils.ExtractUpdatesFromStreamRoot(_sourceId, timestamp, data).EntityUpdates;
             var miscRes = await _updateStore.SaveUpdates(conn, updates);
             
-            _logger.Information(
-                "Saved {GameUpdates} game updates, {MiscUpdates} misc updates (combined games hash {Hash})",
-                0, miscRes, 0);
+            _logger.Information("Received stream update, saved {MiscUpdates} updates", miscRes);
             
             await tx.CommitAsync();
         }
