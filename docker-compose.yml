@@ -11,9 +11,29 @@ services:
       - db_data:/var/lib/postgresql/data
   ingest:
     build: .
+    command: ["SIBR.Storage.CLI.dll", "ingest"]
     environment:
       POSTGRES_CONNECTION: 'Host=db;Port=5432;Username=postgres;Password=password;Database=blaseball'
     volumes:
-      - ./logs:/app/logs
+      - ./logs/ingest:/app/out/logs
+  cli:
+    build: .
+    entrypoint: ["dotnet", "SIBR.Storage.CLI.dll"]
+    environment:
+      POSTGRES_CONNECTION: 'Host=db;Port=5432;Username=postgres;Password=password;Database=blaseball'
+    volumes:
+      - ./logs/cli:/app/out/logs
+      - ./import:/app/out/import
+  api:
+    build: .
+    command: ["SIBR.Storage.API.dll"]
+    environment:
+      POSTGRES_CONNECTION: 'Host=db;Port=5432;Username=postgres;Password=password;Database=blaseball'
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ASPNETCORE_ENVIRONMENT: Production
+    ports:
+      - 4010:80
+    volumes:
+      - ./logs/api:/app/out/logs
 volumes:
   db_data:
