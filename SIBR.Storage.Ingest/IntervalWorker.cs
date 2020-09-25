@@ -37,7 +37,7 @@ namespace SIBR.Storage.Ingest
                 var epoch = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero)
                     .Add(Offset);
                 var waitTime = TimeSpan.FromTicks(Interval.Ticks - (DateTimeOffset.UtcNow - epoch).Ticks % Interval.Ticks);
-                if (waitTime > TimeSpan.Zero)
+                if (waitTime > TimeSpan.FromMilliseconds(100))
                     await Task.Delay(waitTime);
                 else
                     await Task.Delay(TimeSpan.FromMilliseconds(500));
