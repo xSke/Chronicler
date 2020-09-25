@@ -33,22 +33,24 @@ namespace SIBR.Storage.Ingest
             _client = services.GetRequiredService<HttpClient>();
             _updateStore = services.GetRequiredService<UpdateStore>();
             _gameStore = services.GetRequiredService<GameStore>();
-            Interval = TimeSpan.FromSeconds(1);
-            Offset = TimeSpan.FromMilliseconds(500);
+            Interval = TimeSpan.FromSeconds(2);
+            Offset = TimeSpan.FromSeconds(1);
         }
 
         protected override async Task RunInterval()
         {
-            await using var conn = await _db.Obtain();
-            var sim = await _updateStore.GetLastUpdate(conn, UpdateType.Sim);
+            EntityUpdate sim;
+            await using (var conn = await _db.Obtain())
+               sim = await _updateStore.GetLastUpdate(conn, UpdateType.Sim);
             
-            await FetchGamesInner(conn, sim.Data.Value<int>("season"), sim.Data.Value<int>("day"));
+            await FetchGamesInner(sim.Data.Value<int>("season"), sim.Data.Value<int>("day"));
         }
 
-        private async Task FetchGamesInner(NpgsqlConnection conn, int season, int day)
+        private async Task FetchGamesInner(int season, int day)
         {
             var gameUpdates = await FetchGamesAt(season, day);
-            
+
+            await using var conn = await _db.Obtain();
             await using (var tx = await conn.BeginTransactionAsync())
             {
                 await _gameUpdateStore.SaveGameUpdates(conn, gameUpdates);
