@@ -51,10 +51,10 @@ namespace SIBR.Storage.API.Controllers
         }
 
         [Route("names")]
-        public async Task<Dictionary<Guid, string>> GetPlayerNames()
+        public async Task<Dictionary<string, string>> GetPlayerNames()
         {
             var players = await _playerUpdateStore.GetAllPlayerNames();
-            return players.ToDictionary(p => p.PlayerId, p => p.Name);
+            return players.ToDictionary(p => p.PlayerId.ToString(), p => p.Name);
         }
     }
 }
