@@ -10,5 +10,6 @@ namespace SIBR.Storage.Data
         public static readonly Guid ImmaterialServer = new Guid("b7a2f88f-1945-427b-b435-082af9c4d48e");
         public static readonly Guid ImmaterialAstridLocal = new Guid("3735c017-b670-4411-8a09-624a76e9ead5");
         public static readonly Guid BlaseballApiOldGames = new Guid("a4715d03-d092-4ef4-a3cc-4a19776a6fd5");
+        public static readonly Guid BlaseballApiOldPlayers = new Guid("c57920eb-dcca-438b-bdc6-b0ca3deb0368");
     }
 }
