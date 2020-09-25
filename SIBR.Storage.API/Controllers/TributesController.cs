@@ -96,7 +96,7 @@ namespace SIBR.Storage.API.Controllers
 
         private ApiTributes MapToApiTributes(TributesUpdate tributes)
         {
-            var players = new JObject();
+            var players = new Dictionary<string, int>();
             for (var i = 0; i < tributes.Players.Length; i++)
                 players[tributes.Players[i].ToString()] = tributes.Peanuts[i];
 
@@ -109,8 +109,8 @@ namespace SIBR.Storage.API.Controllers
 
         public class ApiTributes
         {
-            public Instant Timestamp;
-            public JObject Players;
+            public Instant Timestamp { get; set; }
+            public Dictionary<string, int> Players { get; set; }
         }
 
         public class TributeQueryOptions
