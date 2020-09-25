@@ -28,7 +28,7 @@ namespace SIBR.Storage.Ingest
             _playerStore = services.GetRequiredService<PlayerUpdateStore>();
             _db = services.GetRequiredService<Database>();
             _clock = services.GetRequiredService<IClock>();
-            Interval = TimeSpan.FromMinutes(5);
+            Interval = TimeSpan.FromMinutes(2);
         }
 
         protected override async Task RunInterval()
