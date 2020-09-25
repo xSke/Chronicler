@@ -18,8 +18,14 @@ create view games_view as
         game_id,
         season,
         day,
-        (select min(timestamp) from game_updates_unique gu where g.game_id = gu.game_id and (gu.data->>'gameStart')::bool = true) as start_time,
-        (select min(timestamp) from game_updates_unique gu where g.game_id = gu.game_id and (gu.data->>'gameComplete')::bool = true) as end_time,
+        coalesce(
+            game_time_overrides.start_time,
+            (select min(timestamp) from game_updates_unique gu where g.game_id = gu.game_id and (gu.data->>'gameStart')::bool = true)
+        ) as start_time,
+        coalesce(
+            game_time_overrides.start_time,
+            (select min(timestamp) from game_updates_unique gu where g.game_id = gu.game_id and (gu.data->>'gameComplete')::bool = true)
+         ) as end_time,
         data,
         (jsonb_array_length(data->'outcomes') > 0) as has_outcomes,
         (data->>'gameStart')::bool as has_started,
@@ -31,4 +37,5 @@ create view games_view as
         (data->>'weather')::int as weather
     from games g
         inner join lateral (select data from game_updates_unique gu where g.game_id = gu.game_id order by timestamp desc limit 1)
-            as last_update on true;
+            as last_update on true
+        left join game_time_overrides using (game_id);
