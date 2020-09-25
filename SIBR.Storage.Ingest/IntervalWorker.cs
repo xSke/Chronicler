@@ -39,6 +39,8 @@ namespace SIBR.Storage.Ingest
                 var waitTime = TimeSpan.FromTicks(Interval.Ticks - (DateTimeOffset.UtcNow - epoch).Ticks % Interval.Ticks);
                 if (waitTime > TimeSpan.Zero)
                     await Task.Delay(waitTime);
+                else
+                    await Task.Delay(TimeSpan.FromMilliseconds(500));
             }
         }
 
