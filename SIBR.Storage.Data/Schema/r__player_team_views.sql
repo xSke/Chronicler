@@ -53,6 +53,6 @@ create materialized view players as
         position,
         roster_index
     from player_versions
-         inner join current_roster using (player_id)
+         left join current_roster using (player_id)
     order by player_id, first_seen desc;
 create unique index players_pkey on players (player_id);
