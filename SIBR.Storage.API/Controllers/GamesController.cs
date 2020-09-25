@@ -12,16 +12,16 @@ namespace SIBR.Storage.API.Controllers
     [Route("api/games")]
     public class GamesController: ControllerBase
     {
-        private readonly GameUpdateStore _store;
+        private readonly GameStore _store;
 
-        public GamesController(GameUpdateStore store)
+        public GamesController(GameStore store)
         {
             _store = store;
         }
 
         [Route("")]
         public IAsyncEnumerable<Game> GetGames([FromQuery] GameQueryOptions opts) => 
-            _store.GetGames(new GameUpdateStore.GameQueryOptions
+            _store.GetGames(new GameStore.GameQueryOptions
             {
                 After = opts.After,
                 Count = opts.Count,

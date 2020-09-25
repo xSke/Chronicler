@@ -41,6 +41,7 @@ namespace SIBR.Storage.Data
                 .AddSingleton<ObjectStore>()
                 .AddSingleton<UpdateStore>()
                 .AddSingleton<GameUpdateStore>()
+                .AddSingleton<GameStore>()
                 .AddSingleton<PlayerUpdateStore>()
                 .AddSingleton<SiteUpdateStore>()
                 .AddSingleton<IdolsTributesStore>()

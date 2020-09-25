@@ -22,6 +22,7 @@ namespace SIBR.Storage.Ingest
         private readonly HttpClient _client;
         private readonly IClock _clock;
         private readonly UpdateStore _updateStore;
+        private readonly GameStore _gameStore;
 
         public GameEndpointWorker(IServiceProvider services, Guid sourceId) : base(services)
         {
@@ -31,6 +32,7 @@ namespace SIBR.Storage.Ingest
             _clock = services.GetRequiredService<IClock>();
             _client = services.GetRequiredService<HttpClient>();
             _updateStore = services.GetRequiredService<UpdateStore>();
+            _gameStore = services.GetRequiredService<GameStore>();
             Interval = TimeSpan.FromSeconds(1);
             Offset = TimeSpan.FromMilliseconds(500);
         }
@@ -45,15 +47,15 @@ namespace SIBR.Storage.Ingest
 
         private async Task FetchGamesInner(NpgsqlConnection conn, int season, int day)
         {
-            var games = await FetchGamesAt(season, day);
+            var gameUpdates = await FetchGamesAt(season, day);
             
             await using (var tx = await conn.BeginTransactionAsync())
             {
-                await _gameUpdateStore.SaveGameUpdates(conn, games);
+                await _gameUpdateStore.SaveGameUpdates(conn, gameUpdates);
                 await tx.CommitAsync();
             }
 
-            await _gameUpdateStore.RefreshViewsIfNewGames(conn, games);
+            await _gameStore.TryAddNewGameIds(conn, gameUpdates.Select(gu => gu.GameId));
         }
 
         private async Task<List<GameUpdate>> FetchGamesAt(int season, int day)

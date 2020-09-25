@@ -17,38 +17,14 @@ namespace SIBR.Storage.Data
         private readonly ILogger _logger;
         private readonly Database _db;
         private readonly ObjectStore _objectStore;
-        private readonly HashSet<Guid> _knownGames = new HashSet<Guid>(); 
 
         public GameUpdateStore(ILogger logger, Database db, ObjectStore objectStore)
         {
-            _logger = logger;
+            _logger = logger.ForContext<GameUpdateStore>();
             _db = db;
             _objectStore = objectStore;
         }
-
-        public IAsyncEnumerable<Game> GetGames(GameQueryOptions opts)
-        {
-            var q = new Query("games_view");
-            
-            if (opts.Reverse)
-                q.OrderByDesc("season", "day");
-            else
-                q.OrderBy("season", "day");
-
-            if (opts.Season != null) q.Where("season", opts.Season.Value);
-            if (opts.Day != null) q.Where("day", opts.Day.Value);
-            if (opts.After != null) q.Where("start_time", ">", opts.After.Value);
-            if (opts.HasOutcomes != null) q.Where("has_outcomes", opts.HasOutcomes.Value);
-            if (opts.HasStarted != null) q.Where("has_started", opts.HasStarted.Value);
-            if (opts.HasFinished != null) q.Where("has_finished", opts.HasFinished.Value);
-            if (opts.Team != null) q.Where(q => q.WhereIn("home_team", opts.Team).OrWhereIn("away_team", opts.Team));
-            if (opts.Pitcher != null) q.Where(q => q.WhereIn("home_pitcher", opts.Pitcher).OrWhereIn("away_pitcher", opts.Pitcher));
-            if (opts.Weather != null) q.WhereIn("weather", opts.Weather);
-            if (opts.Count != null) q.Limit(opts.Count.Value);
-
-            return _db.QueryKataAsync<Game>(q);
-        }
-
+        
         public IAsyncEnumerable<GameUpdateView> GetGameUpdates(GameUpdateQueryOptions opts)
         {
             var q = new Query("game_updates_unique")
@@ -61,6 +37,7 @@ namespace SIBR.Storage.Data
             if (opts.Game != null) q.WhereIn("game_id", opts.Game);
             if (opts.After != null) q.Where("timestamp", ">", opts.After.Value);
             if (opts.Search != null) q.WhereRaw("search_tsv @@ websearch_to_tsquery(?)", opts.Search);
+            if (opts.Started != null) q.WhereRaw("(data->>'gameStart')::bool = ?", opts.Started.Value);
 
             return _db.QueryKataAsync<GameUpdateView>(q);
         }
@@ -134,40 +111,15 @@ drop table tmp_gameupdates;
             }
         }
 
-        public async Task RefreshViewsIfNewGames(NpgsqlConnection conn, IReadOnlyCollection<GameUpdate> updates)
-        {
-            var anyNewGames = false;
-            foreach (var gameUpdate in updates)
-                if (_knownGames.Add(gameUpdate.GameId))
-                    anyNewGames = true;
-
-            if (anyNewGames)
-                await _db.RefreshMaterializedViews(conn, "games");
-        }
-
         public class GameUpdateQueryOptions
-        {
-            public int? Season { get; set; }
-            public int? Day { get; set; }
-            public Guid[] Game { get; set; }
-            public Instant? After { get; set; }
-            public int Count { get; set; }
-            public string Search { get; set; }
-        }
-
-        public class GameQueryOptions
         {
             public int? Season;
             public int? Day;
+            public Guid[] Game;
             public Instant? After;
-            public bool Reverse;
-            public int? Count;
-            public bool? HasOutcomes;
-            public bool? HasFinished;
-            public bool? HasStarted;
-            public Guid[] Team;
-            public Guid[] Pitcher;
-            public int[] Weather;
+            public int Count;
+            public string Search;
+            public bool? Started;
         }
     }
 }

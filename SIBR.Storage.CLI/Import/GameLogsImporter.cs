@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
@@ -13,7 +14,8 @@ namespace SIBR.Storage.CLI
     {
         private readonly Database _db;
         private readonly UpdateStore _updateStore;
-        private readonly GameUpdateStore _gameStore;
+        private readonly GameStore _gameStore;
+        private readonly GameUpdateStore _gameUpdateStore;
         private readonly Guid _sourceId;
 
         public GameLogsImporter(IServiceProvider services, Guid sourceId) : base(services)
@@ -23,7 +25,8 @@ namespace SIBR.Storage.CLI
 
             _db = services.GetRequiredService<Database>();
             _updateStore = services.GetRequiredService<UpdateStore>();
-            _gameStore = services.GetRequiredService<GameUpdateStore>();
+            _gameStore = services.GetRequiredService<GameStore>();
+            _gameUpdateStore = services.GetRequiredService<GameUpdateStore>();
         }
 
         protected override async Task ProcessFile(string filename, IAsyncEnumerable<JToken> entries)
@@ -52,7 +55,7 @@ namespace SIBR.Storage.CLI
             await using (var tx = await conn.BeginTransactionAsync())
             {
                 var streamRes = await _updateStore.SaveUpdates(conn, streamUpdates, false);
-                await _gameStore.SaveGameUpdates(conn, gameUpdates, false);
+                await _gameUpdateStore.SaveGameUpdates(conn, gameUpdates, false);
                 var miscRes = await _updateStore.SaveUpdates(conn, miscUpdates, false);
                 _logger.Information(
                     "- Imported {StreamUpdates} stream updates, {GameUpdates} game updates, {MiscUpdates} misc updates",
@@ -60,7 +63,7 @@ namespace SIBR.Storage.CLI
                 await tx.CommitAsync();
             }
 
-            await _gameStore.RefreshViewsIfNewGames(conn, gameUpdates);
+            await _gameStore.TryAddNewGameIds(conn, gameUpdates.Select(gu => gu.GameId));
         }
 
         private JObject FindStreamRoot(JToken value)
