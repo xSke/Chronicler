@@ -25,7 +25,7 @@ namespace SIBR.Storage.Data
         {
             await using var conn = await _db.Obtain();
             
-            var stream = conn.QueryStreamAsync<SiteUpdateUnique>("select hash, path, timestamp from site_updates_unique order by timestamp desc", new{});
+            var stream = conn.QueryStreamAsync<SiteUpdateUnique>("select hash, path, timestamp, size from site_updates_unique order by timestamp desc", new{});
             await foreach (var update in stream)
                 yield return update;
         }

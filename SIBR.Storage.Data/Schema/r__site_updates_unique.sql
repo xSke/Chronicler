@@ -1,8 +1,9 @@
 ﻿drop view if exists site_updates_unique;
 create view site_updates_unique as
     select *,
-        (select data from binary_objects where binary_objects.hash = site_updates.hash)
+        octet_length(data) as size
     from site_updates
+    inner join binary_objects bo using (hash)
     where not exists(
         select 1 from site_updates s2
         where 

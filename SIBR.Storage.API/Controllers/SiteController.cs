@@ -54,6 +54,7 @@ namespace SIBR.Storage.API.Controllers
             public Instant Timestamp { get; set; }
             public string Path { get; set; }
             public Guid Hash { get; set; }
+            public int Size { get; set; }
             public string Download { get; set; }
         }
         
@@ -68,7 +69,8 @@ namespace SIBR.Storage.API.Controllers
                 Timestamp = update.Timestamp,
                 Hash = update.Hash,
                 Path = update.Path,
-                Download = $"/api/site/download/{update.Hash}/{filename}"
+                Download = $"/api/site/download/{update.Hash}/{filename}",
+                Size = update.Size
             };
         }
     }

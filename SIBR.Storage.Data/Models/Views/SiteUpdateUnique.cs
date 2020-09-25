@@ -8,5 +8,6 @@ namespace SIBR.Storage.Data.Models
         public Guid Hash { get; set; }
         public string Path { get; set; }
         public Instant Timestamp { get; set; }
+        public int Size { get; set; }
     }
 }
