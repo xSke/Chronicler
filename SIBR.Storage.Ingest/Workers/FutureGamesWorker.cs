@@ -2,14 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Reflection.Metadata;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using NodaTime;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
-using SIBR.Storage.Data.Utils;
 
 namespace SIBR.Storage.Ingest
 {
@@ -17,6 +15,7 @@ namespace SIBR.Storage.Ingest
     {
         private readonly Guid _sourceId;
         private readonly Database _db;
+        private readonly GameStore _gameStore;
         private readonly UpdateStore _updateStore;
         private readonly GameUpdateStore _gameUpdateStore;
         private readonly HttpClient _client;
@@ -26,6 +25,7 @@ namespace SIBR.Storage.Ingest
         {
             _sourceId = sourceId;
             _updateStore = services.GetRequiredService<UpdateStore>();
+            _gameStore = services.GetRequiredService<GameStore>();
             _gameUpdateStore = services.GetRequiredService<GameUpdateStore>();
             _db = services.GetRequiredService<Database>();
             _client = services.GetRequiredService<HttpClient>();
@@ -59,7 +59,7 @@ namespace SIBR.Storage.Ingest
                 await tx.CommitAsync();
             }
 
-            await _gameUpdateStore.RefreshViewsIfNewGames(conn, updates);
+            await _gameStore.TryAddNewGameIds(conn, updates.Select(gu => gu.GameId));
         }
     }
 }
