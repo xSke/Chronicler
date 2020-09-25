@@ -52,7 +52,7 @@ namespace SIBR.Storage.Data
         public IAsyncEnumerable<GameUpdateView> GetGameUpdates(GameUpdateQueryOptions opts)
         {
             var q = new Query("game_updates_unique")
-                .Select("game_id", "timestamp", "data")
+                .Select("game_id", "timestamp", "hash", "data")
                 .OrderBy("timestamp")
                 .Limit(opts.Count);
 
