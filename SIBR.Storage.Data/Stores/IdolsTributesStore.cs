@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using Dapper;
 using NodaTime;
 using SIBR.Storage.Data.Models;
+using SIBR.Storage.Data.Utils;
+using SqlKata;
 
 namespace SIBR.Storage.Data
 {
@@ -16,31 +18,39 @@ namespace SIBR.Storage.Data
             _db = db;
         }
 
-        public Task<IEnumerable<TributesUpdate>>
-            GetTributeUpdates(Instant before, int count, Guid[] playerIds = null) =>
-            GetTributeUpdatesInner("tributes_by_player", before, count, playerIds);
+        public IAsyncEnumerable<TributesUpdate> GetTributeUpdates(TributesQuery opts) =>
+            GetTributeUpdatesInner("tributes_by_player", opts);
 
-        public Task<IEnumerable<TributesUpdate>> GetTributeUpdatesHourly(Instant before, int count,
-            Guid[] playerIds = null) =>
-            GetTributeUpdatesInner("tributes_hourly", before, count, playerIds);
+        public IAsyncEnumerable<TributesUpdate> GetTributeUpdatesHourly(TributesQuery opts) =>
+            GetTributeUpdatesInner("tributes_hourly", opts);
 
-        private async Task<IEnumerable<TributesUpdate>> GetTributeUpdatesInner(string table, Instant before, int count,
-            Guid[] playerIds = null)
+        private IAsyncEnumerable<TributesUpdate> GetTributeUpdatesInner(string table, TributesQuery opts)
         {
-            var query =
-                $"select timestamp, array_agg(player_id) as players, array_agg(peanuts) as peanuts from {table} where timestamp < @Before";
-            if (playerIds != null)
-                query += " and player_id = any(@PlayerIds)";
-            query += " group by timestamp order by timestamp desc limit @Count";
+            var q = new Query()
+                .SelectRaw("timestamp, array_agg(player_id) as players, array_agg(peanuts) as peanuts")
+                .From(table)
+                .GroupBy("timestamp");
 
-            await using var conn = await _db.Obtain();
-            return await conn.QueryAsync<TributesUpdate>(query,
-                new
-                {
-                    Before = before,
-                    PlayerIds = playerIds,
-                    Count = count
-                });
+            if (opts.Reverse)
+                q.OrderByDesc("timestamp");
+            else
+                q.OrderBy("timestamp");
+
+            if (opts.Before != null) q.Where("timestamp", "<", opts.Before.Value);
+            if (opts.After != null) q.Where("timestamp", ">", opts.After.Value);
+            if (opts.Players != null) q.WhereIn("player_id", opts.Players);
+            if (opts.Count != null) q.Limit(opts.Count.Value);
+
+            return _db.QueryKataAsync<TributesUpdate>(q);
+        }
+
+        public class TributesQuery
+        {
+            public Guid[] Players;
+            public Instant? Before;
+            public Instant? After;
+            public int? Count;
+            public bool Reverse;
         }
     }
 }

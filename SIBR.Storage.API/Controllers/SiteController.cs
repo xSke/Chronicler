@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
+using SIBR.Storage.API.Controllers.Models;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
 
@@ -21,13 +22,13 @@ namespace SIBR.Storage.API.Controllers
         }
 
         [Route("updates")]
-        public async Task<ActionResult<IEnumerable<ApiSiteUpdate>>> GetSiteUpdates(string format = null)
+        public ActionResult<IAsyncEnumerable<ApiSiteUpdate>> GetSiteUpdates(string format = null)
         {
             var stream = _store.GetUniqueSiteUpdates();
             if (format != null)
                 stream = stream.Where(u => u.Path.EndsWith(format));
 
-            return Ok(await stream.Select(MapToApiUpdate).ToListAsync());
+            return Ok(stream.Select(ToApiSiteUpdate));
         }
 
         [Route("download/{hash}")]
@@ -49,16 +50,7 @@ namespace SIBR.Storage.API.Controllers
             return File(data, contentType, filename);
         }
 
-        public class ApiSiteUpdate
-        {
-            public Instant Timestamp { get; set; }
-            public string Path { get; set; }
-            public Guid Hash { get; set; }
-            public int Size { get; set; }
-            public string Download { get; set; }
-        }
-        
-        private ApiSiteUpdate MapToApiUpdate(SiteUpdateUnique update)
+        private ApiSiteUpdate ToApiSiteUpdate(SiteUpdateUnique update)
         {
             var filename = update.Path.Split("/").Last();
             if (string.IsNullOrWhiteSpace(filename))
@@ -69,7 +61,7 @@ namespace SIBR.Storage.API.Controllers
                 Timestamp = update.Timestamp,
                 Hash = update.Hash,
                 Path = update.Path,
-                Download = $"/api/site/download/{update.Hash}/{filename}",
+                Download = $"/site/download/{update.Hash}/{filename}",
                 Size = update.Size
             };
         }

@@ -50,7 +50,7 @@ namespace SIBR.Storage.Ingest
                 _logger.Information("Saved {Updates} team and player updates", res);
             }
 
-            await _db.RefreshMaterializedViews(conn, "team_versions", "player_versions", "players");
+            await _db.RefreshMaterializedViews(conn, "team_versions", "player_versions", "teams", "players");
         }
 
         private async Task<List<EntityUpdate>> FetchPlayersChunked(IEnumerable<Guid> playerIds, int chunkSize)

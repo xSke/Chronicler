@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
+using SIBR.Storage.API.Controllers.Models;
+using SIBR.Storage.API.Utils;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
 
@@ -21,33 +23,25 @@ namespace SIBR.Storage.API.Controllers
         }
         
         [Route("")]
-        public async Task<ActionResult<List<PlayerVersion>>> GetPlayers([FromQuery] Instant? before = null)
+        public async Task<ActionResult<List<ApiPlayer>>> GetPlayers()
         {
-            var updates = _playerUpdateStore.GetPlayerVersions(null, before);
-            return Ok(await updates.Take(100).ToListAsync());
-        }
-
-        [Route("{playerId}")]
-        public async Task<ActionResult<PlayerVersion>> GetPlayer(Guid playerId, [FromQuery] Instant? at = null)
-        {
-            // Add one ms because this is a before constraint
-            var updates = _playerUpdateStore.GetPlayerVersions(playerId, at?.Plus(Duration.FromMilliseconds(1)));
-            return Ok(await updates.FirstAsync());
-        }
-
-        [Route("{playerId}/updates")]
-        public async Task<ActionResult<List<PlayerVersion>>> GetPlayerUpdates(Guid playerId,
-            [FromQuery] Instant? before = null)
-        {
-            var updates = _playerUpdateStore.GetPlayerVersions(playerId, before);
-            return Ok(await updates.Take(100).ToListAsync());
+            var updates = await _playerUpdateStore.GetAllPlayers();
+            return Ok(updates.Select(ToApiPlayer));
         }
 
         [Route("updates")]
-        public async Task<ActionResult<List<PlayerVersion>>> GetAllPlayerUpdates([FromQuery] Instant? before = null)
+        public ActionResult<IAsyncEnumerable<ApiPlayerUpdate>> GetPlayerUpdates([FromQuery] PlayerUpdateQuery query)
         {
-            var updates = _playerUpdateStore.GetPlayerVersions(null, before);
-            return Ok(await updates.Take(100).ToListAsync());
+            var updates = _playerUpdateStore.GetPlayerVersions(new PlayerUpdateStore.PlayerUpdateQuery
+            {
+                Count = query.Count ?? 100,
+                After = query.After,
+                Before = query.Before,
+                Players = query.Player,
+                Reverse = query.Order == IUpdateQuery.ResultOrder.Desc
+            });
+            
+            return Ok(updates.Select(ToApiPlayerUpdate));
         }
 
         [Route("names")]
@@ -55,6 +49,38 @@ namespace SIBR.Storage.API.Controllers
         {
             var players = await _playerUpdateStore.GetAllPlayerNames();
             return players.ToDictionary(p => p.PlayerId.ToString(), p => p.Name);
+        }
+        
+        private ApiPlayer ToApiPlayer(Player arg)
+        {
+            return new ApiPlayer
+            {
+                Id = arg.PlayerId,
+                LastUpdate = arg.Timestamp,
+                TeamId = arg.TeamId,
+                Position = arg.Position,
+                RosterIndex = arg.RosterIndex,
+                Data = arg.Data
+            };
+        }
+        
+        private ApiPlayerUpdate ToApiPlayerUpdate(PlayerUpdate arg) =>
+            new ApiPlayerUpdate
+            {
+                Id = arg.PlayerId,
+                FirstSeen = arg.FirstSeen,
+                LastSeen = arg.LastSeen,
+                Hash = arg.Hash,
+                Data = arg.Data,
+            };
+
+        public class PlayerUpdateQuery: IUpdateQuery {
+            [ModelBinder(BinderType = typeof(CommaSeparatedBinder))]
+            public Guid[] Player { get; set; }
+            public Instant? Before { get; set; }
+            public Instant? After { get; set; }
+            public IUpdateQuery.ResultOrder Order { get; set; }
+            public int? Count { get; set; }
         }
     }
 }

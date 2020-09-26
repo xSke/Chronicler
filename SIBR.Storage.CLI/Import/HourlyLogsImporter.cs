@@ -73,7 +73,7 @@ namespace SIBR.Storage.CLI
             await base.Run(options);
             
             await using var conn = await _db.Obtain();
-            await _db.RefreshMaterializedViews(conn, "player_versions", "team_versions");
+            await _db.RefreshMaterializedViews(conn, "team_versions", "player_versions", "teams", "players");
         }
     }
 }

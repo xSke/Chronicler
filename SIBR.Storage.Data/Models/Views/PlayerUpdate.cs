@@ -4,7 +4,7 @@ using NodaTime;
 
 namespace SIBR.Storage.Data.Models
 {
-    public class PlayerVersion
+    public class PlayerUpdate
     {
         public Instant FirstSeen { get; set; }
         public Instant LastSeen { get; set; }

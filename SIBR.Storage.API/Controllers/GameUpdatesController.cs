@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
+using SIBR.Storage.API.Controllers.Models;
 using SIBR.Storage.API.Utils;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
@@ -21,7 +22,7 @@ namespace SIBR.Storage.API.Controllers
         }
 
         [Route("")]
-        public ActionResult<IAsyncEnumerable<GameUpdateView>> GetUpdatesBySeasonDay([FromQuery] GameUpdatesQueryOptions opts)
+        public ActionResult<IAsyncEnumerable<GameUpdateView>> GetGameUpdates([FromQuery] GameUpdatesQueryOptions opts)
         {
             if ((opts.Season != null) != (opts.Day != null))
                 return BadRequest("Must query by both season and day");
@@ -31,7 +32,7 @@ namespace SIBR.Storage.API.Controllers
                 Season = opts.Season,
                 Day = opts.Day,
                 After = opts.After,
-                Count = opts.Count,
+                Count = opts.Count ?? 100,
                 Game = opts.Game,
                 Search = opts.Search,
                 Started = opts.Started
@@ -39,17 +40,19 @@ namespace SIBR.Storage.API.Controllers
             return Ok(res);
         }
         
-        public class GameUpdatesQueryOptions
+        public class GameUpdatesQueryOptions: IUpdateQuery
         {
             public int? Season { get; set; }
             public int? Day { get; set; }
             
             [BindProperty(BinderType = typeof(CommaSeparatedBinder))]
             public Guid[] Game { get; set; }
-            public Instant? After { get; set; }
-            [Range(1, 5000)] public int Count { get; set; } = 100;
             public string Search { get; set; }
             public bool? Started { get; set; }
+            public Instant? Before { get; set; }
+            public Instant? After { get; set; }
+            public IUpdateQuery.ResultOrder Order { get; set; }
+            [Range(1, 1000)] public int? Count { get; set; }
         }
     }
 }

@@ -23,10 +23,10 @@ namespace SIBR.Storage.Data
         public async Task<IEnumerable<Guid>> GetAllPlayerIds(NpgsqlConnection conn) => 
             await conn.QueryAsync<Guid>("select distinct player_id from player_versions");
         
-        public async Task<IEnumerable<JObject>> GetAllPlayers()
+        public async Task<IEnumerable<Player>> GetAllPlayers()
         {
             await using var conn = await _db.Obtain();
-            return await conn.QueryAsync<JObject>("select data from players");
+            return await conn.QueryAsync<Player>("select * from players");
         }
         public async Task<IEnumerable<PlayerName>> GetAllPlayerNames()
         {
@@ -34,23 +34,40 @@ namespace SIBR.Storage.Data
             return await conn.QueryAsync<PlayerName>("select player_id, (data->>'name') as name from players");
         }
 
-        public IAsyncEnumerable<PlayerVersion> GetPlayerVersions(Guid? playerId, Instant? before)
+        public IAsyncEnumerable<PlayerUpdate> GetPlayerVersions(PlayerUpdateQuery opts)
         {
-            var q = new Query("player_versions").OrderByDesc("first_seen");
-            
-            if (playerId != null)
-                q.Where("player_id", playerId);
-            
-            if (before != null)
-                q.Where("first_seen", "<", before);
+            var q = new Query("player_versions");
+            if (opts.Reverse)
+                q.OrderByDesc("first_seen");
+            else
+                q.OrderBy("first_seen");
 
-            return _db.QueryKataAsync<PlayerVersion>(q);
+            if (opts.Players != null) q.WhereIn("player_id", opts.Players);
+            if (opts.Before != null) q.Where("first_seen", "<", opts.Before.Value);
+            if (opts.After != null) q.Where("first_seen", ">", opts.After.Value);
+            if (opts.Count != null) q.Limit(opts.Count.Value);
+
+            return _db.QueryKataAsync<PlayerUpdate>(q);
         }
 
         public class PlayerName
         {
             public Guid PlayerId;
             public string Name;
+        }
+
+        public class PlayerInfo
+        {
+            public Guid PlayerId { get; set; }
+        }
+
+        public class PlayerUpdateQuery
+        {
+            public Guid[] Players;
+            public Instant? Before;
+            public Instant? After;
+            public bool Reverse;
+            public int? Count;
         }
     }
 }

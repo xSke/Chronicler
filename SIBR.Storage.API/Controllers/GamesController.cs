@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
+using SIBR.Storage.API.Controllers.Models;
 using SIBR.Storage.API.Utils;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
@@ -23,6 +24,7 @@ namespace SIBR.Storage.API.Controllers
         public IAsyncEnumerable<Game> GetGames([FromQuery] GameQueryOptions opts) => 
             _store.GetGames(new GameStore.GameQueryOptions
             {
+                Before = opts.Before,
                 After = opts.After,
                 Count = opts.Count,
                 Season = opts.Season,
@@ -30,20 +32,17 @@ namespace SIBR.Storage.API.Controllers
                 HasOutcomes = opts.Outcomes,
                 HasStarted = opts.Started,
                 HasFinished = opts.Finished,
-                Reverse = opts.Order == GameQueryOptions.GameOrder.Desc,
+                Reverse = opts.Order == IUpdateQuery.ResultOrder.Desc,
                 Team = opts.Team,
                 Pitcher = opts.Pitcher,
                 Weather = opts.Weather
             });
         
-        public class GameQueryOptions
+        public class GameQueryOptions: IUpdateQuery
         {
-            public int? Count { get; set; }
             public int? Season { get; set; }
             public int? Day { get; set; }
-            public Instant? After { get; set; }
             public bool? Outcomes { get; set; }
-            public GameOrder Order { get; set; } = GameOrder.Asc;
             public bool? Started { get; set; }
             public bool? Finished { get; set; }
             
@@ -55,12 +54,11 @@ namespace SIBR.Storage.API.Controllers
             
             [ModelBinder(BinderType = typeof(CommaSeparatedBinder))]
             public int[] Weather { get; set; } = null;
-            
-            public enum GameOrder
-            {
-                Asc,
-                Desc
-            }
+
+            public Instant? Before { get; set; }
+            public Instant? After { get; set; }
+            public IUpdateQuery.ResultOrder Order { get; set; }
+            public int? Count { get; set; }
         }
     }
 }

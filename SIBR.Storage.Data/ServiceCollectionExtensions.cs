@@ -45,6 +45,7 @@ namespace SIBR.Storage.Data
                 .AddSingleton<PlayerUpdateStore>()
                 .AddSingleton<SiteUpdateStore>()
                 .AddSingleton<IdolsTributesStore>()
+                .AddSingleton<TeamUpdateStore>()
                 .AddSingleton<IClock>(SystemClock.Instance);
         }
         

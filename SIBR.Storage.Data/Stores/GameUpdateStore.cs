@@ -29,12 +29,17 @@ namespace SIBR.Storage.Data
         {
             var q = new Query("game_updates_unique")
                 .Select("game_id", "timestamp", "hash", "data")
-                .OrderBy("timestamp")
                 .Limit(opts.Count);
-
+            
+            if (opts.Reverse)
+                q.OrderByDesc("timestamp");
+            else
+                q.OrderBy("timestamp");
+            
             if (opts.Season != null) q.Where("season", opts.Season.Value);
             if (opts.Day != null) q.Where("day", opts.Day.Value);
             if (opts.Game != null) q.WhereIn("game_id", opts.Game);
+            if (opts.Before != null) q.Where("timestamp", "<", opts.Before.Value);
             if (opts.After != null) q.Where("timestamp", ">", opts.After.Value);
             if (opts.Search != null) q.WhereRaw("search_tsv @@ websearch_to_tsquery(?)", opts.Search);
             if (opts.Started != null) q.WhereRaw("(data->>'gameStart')::bool = ?", opts.Started.Value);
@@ -116,7 +121,9 @@ drop table tmp_gameupdates;
             public int? Season;
             public int? Day;
             public Guid[] Game;
+            public Instant? Before;
             public Instant? After;
+            public bool Reverse;
             public int Count;
             public string Search;
             public bool? Started;

@@ -30,6 +30,7 @@ namespace SIBR.Storage.Data
 
             if (opts.Season != null) q.Where("season", opts.Season.Value);
             if (opts.Day != null) q.Where("day", opts.Day.Value);
+            if (opts.Before != null) q.Where("start_time", "<", opts.Before.Value);
             if (opts.After != null) q.Where("start_time", ">", opts.After.Value);
             if (opts.HasOutcomes != null) q.Where("has_outcomes", opts.HasOutcomes.Value);
             if (opts.HasStarted != null) q.Where("has_started", opts.HasStarted.Value);
@@ -57,6 +58,7 @@ namespace SIBR.Storage.Data
         {
             public int? Season;
             public int? Day;
+            public Instant? Before;
             public Instant? After;
             public bool Reverse;
             public int? Count;

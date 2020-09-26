@@ -1,5 +1,6 @@
 ﻿using System;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using NodaTime;
 
 namespace SIBR.Storage.Data.Models
@@ -8,7 +9,7 @@ namespace SIBR.Storage.Data.Models
     {
         public Guid PlayerId { get; set; }
         public Instant Timestamp { get; set; }
-        public JObject Data { get; set; }
+        public JsonElement Data { get; set; }
         public Guid TeamId { get; set; }
         public TeamPosition Position { get; set; }
         public int RosterIndex { get; set; }
