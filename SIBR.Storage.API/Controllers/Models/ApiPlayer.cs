@@ -13,7 +13,7 @@ namespace SIBR.Storage.API.Controllers.Models
         public Guid TeamId { get; set; }
         public Instant LastUpdate { get; set; }
 
-        [JsonConverter(typeof(LowercaseNamingPolicy))]
+        [JsonConverter(typeof(LowercaseStringEnumConverter))]
         public Player.TeamPosition Position { get; set; }
 
         public int RosterIndex { get; set; }
