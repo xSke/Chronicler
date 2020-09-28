@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
@@ -24,18 +25,18 @@ namespace SIBR.Storage.Data
             _db = db;
             _objectStore = objectStore;
         }
-        
+
         public IAsyncEnumerable<GameUpdateView> GetGameUpdates(GameUpdateQueryOptions opts)
         {
             var q = new Query("game_updates_unique")
                 .Select("game_id", "timestamp", "hash", "data")
                 .Limit(opts.Count);
-            
+
             if (opts.Reverse)
                 q.OrderByDesc("timestamp");
             else
                 q.OrderBy("timestamp");
-            
+
             if (opts.Season != null) q.Where("season", opts.Season.Value);
             if (opts.Day != null) q.Where("day", opts.Day.Value);
             if (opts.Game != null) q.WhereIn("game_id", opts.Game);
@@ -48,58 +49,63 @@ namespace SIBR.Storage.Data
         }
 
         public async Task SaveGameUpdates(NpgsqlConnection conn,
-            IReadOnlyCollection<GameUpdate> updates, bool log = true)
+            IReadOnlyCollection<GameUpdate> updates, bool log = true, bool updateSearchIndex = true)
         {
             if (log)
                 LogUpdates(updates);
 
             await _objectStore.SaveObjects(conn, updates);
-            await SaveGameUpdatesTable(conn, updates);
+            await SaveGameUpdatesTable(conn, updates, updateSearchIndex);
         }
 
-        private static async Task SaveGameUpdatesTable(NpgsqlConnection conn, IReadOnlyCollection<GameUpdate> updates)
+        private static async Task SaveGameUpdatesTable(NpgsqlConnection conn, IReadOnlyCollection<GameUpdate> updates,
+            bool updateSearchIndex)
         {
+            await conn.ExecuteAsync(
+                "insert into game_updates (source_id, timestamp, game_id, hash, season, day) select unnest(@SourceId), unnest(@Timestamp), unnest(@GameId), unnest(@Hash), unnest(@Season), unnest(@Day) on conflict do nothing",
+                new
+                {
+                    SourceId = updates.Select(u => u.SourceId).ToArray(),
+                    Timestamp = updates.Select(u => u.Timestamp).ToArray(),
+                    Hash = updates.Select(u => u.Hash).ToArray(),
+                    GameId = updates.Select(u => u.GameId).ToArray(),
+                    Season = updates.Select(u => u.Season).ToArray(),
+                    Day = updates.Select(u => u.Day).ToArray(),
+                });
+
+            var grouped = updates.GroupBy(u => u.Hash).ToList();
             await conn.ExecuteAsync(@"
-create temporary table tmp_gameupdates as
-    select
-        unnest(@SourceId) as source_id,
-        unnest(@Timestamp) as timestamp,
-        unnest(@GameId) as game_id,
-        unnest(@Hash) as hash,
-        unnest(@Season) as season,
-        unnest(@Day) as day;
-
--- Update 'raw' game updates table
-insert into game_updates (source_id, timestamp, game_id, hash, season, day)
-    select source_id, timestamp, game_id, hash, season, day from tmp_gameupdates
-on conflict do nothing;
-
--- Update deduplicated/hydrated game updates table
 insert into game_updates_unique (hash, game_id, timestamp, data, season, day, search_tsv)
-select distinct on (hash)
-    hash,
-    game_id,
-    timestamp,
-    data,
-    season,
-    day,
-    to_tsvector('english', data ->> 'lastUpdate')
-from tmp_gameupdates
+    select
+        hash,
+        game_id,
+        timestamp,
+        data,
+        season,
+        day,
+        case when @UpdateSearchIndex then to_tsvector('english', data ->> 'lastUpdate') end as search_tsv
+    from (select unnest(@Hash) as hash, unnest(@GameId) as game_id, unnest(@Timestamp) as timestamp, unnest(@Season) as season, unnest(@Day) as day) as new_updates
     inner join objects using (hash)
-order by hash, timestamp
-on conflict (hash) do update set 
-    timestamp = least(game_updates_unique.timestamp, excluded.timestamp);
-
-drop table tmp_gameupdates;
-", new
+    on conflict (hash) do update set 
+        timestamp = least(game_updates_unique.timestamp, excluded.timestamp);", new
             {
-                SourceId = updates.Select(u => u.SourceId).ToArray(),
-                Timestamp = updates.Select(u => u.Timestamp).ToArray(),
-                Hash = updates.Select(u => u.Hash).ToArray(),
-                GameId = updates.Select(u => u.GameId).ToArray(),
-                Season = updates.Select(u => u.Season).ToArray(),
-                Day = updates.Select(u => u.Day).ToArray(),
+                Hash = grouped.Select(g => g.Key).ToArray(),
+                GameId = grouped.Select(g => g.First().GameId).ToArray(),
+                Timestamp = grouped.Select(g => g.Min(u => u.Timestamp)).ToArray(),
+                Season = grouped.Select(g => g.First().Season).ToArray(),
+                Day = grouped.Select(g => g.First().Day).ToArray(),
+                UpdateSearchIndex = updateSearchIndex
             });
+        }
+
+        public async Task UpdateSearchIndex(NpgsqlConnection conn)
+        {
+            _logger.Information("Updating search index...");
+            var sw = new Stopwatch();
+            await conn.ExecuteAsync(
+                "update game_updates_unique set search_tsv = to_tsvector('english', data ->> 'lastUpdate') where search_tsv is null");
+            sw.Stop();
+            _logger.Information("Updated search index in {Duration}", sw.Elapsed);
         }
 
         private void LogUpdates(IReadOnlyCollection<GameUpdate> updates)

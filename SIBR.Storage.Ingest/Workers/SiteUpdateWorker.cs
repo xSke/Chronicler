@@ -58,8 +58,15 @@ namespace SIBR.Storage.Ingest
 
         private async Task<SiteUpdate> FetchResource(string path)
         {
-            var resData = await _client.GetByteArrayAsync(new Uri(new Uri("https://www.blaseball.com/"), path));
-            var update = SiteUpdate.From(_sourceId, path, _clock.GetCurrentInstant(), resData);
+            var response = await _client.GetAsync(new Uri(new Uri("https://www.blaseball.com/"), path));
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+
+            var lastModifiedDto = response.Content.Headers.LastModified;
+            var lastModified = lastModifiedDto != null
+                ? Instant.FromDateTimeOffset(lastModifiedDto.Value)
+                : (Instant?) null;
+
+            var update = SiteUpdate.From(_sourceId, path, _clock.GetCurrentInstant(), bytes, lastModified);
             _logger.Information("- Fetched resource {Path} (hash {Hash})", path, update.Hash);
             return update;
         }

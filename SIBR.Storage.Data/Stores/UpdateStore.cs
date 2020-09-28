@@ -6,6 +6,7 @@ using Dapper;
 using Npgsql;
 using Serilog;
 using SIBR.Storage.Data.Models;
+using SIBR.Storage.Data.Utils;
 
 namespace SIBR.Storage.Data
 {
@@ -13,11 +14,53 @@ namespace SIBR.Storage.Data
     {
         private readonly ILogger _logger;
         private readonly ObjectStore _objectStore;
+        private readonly Database _db;
 
-        public UpdateStore(ILogger logger, ObjectStore objectStore)
+        public UpdateStore(ILogger logger, ObjectStore objectStore, Database db)
         {
             _logger = logger.ForContext<UpdateStore>();
             _objectStore = objectStore;
+            _db = db;
+        }
+
+        public IAsyncEnumerable<EntityUpdateView> ExportAllUpdatesRaw(UpdateType type)
+        {
+            return _db.QueryStreamAsync<EntityUpdateView>("select * from updates inner join objects using (hash) where type = @Type order by timestamp", new
+            {
+                Type = type
+            });
+        }
+
+        public IAsyncEnumerable<EntityVersion> ExportAllUpdatesGrouped(UpdateType type)
+        {
+            // todo: move to view
+            return _db.QueryStreamAsync<EntityVersion>(@"
+select
+    type,
+    entity_id,
+    version,
+    hash,
+    (select data from objects o where o.hash = observations.hash),
+    array_agg(observations.timestamp) as observations,
+    array_agg(observations.source_id) as observation_sources
+from (
+    select 
+        *,
+        (sum(version_increment) over (partition by type, entity_id order by timestamp)) - 1 
+            as version
+    from (
+        select
+            *,
+            case 
+                when (lag(hash) over (partition by type, entity_id order by timestamp)) is distinct from hash then 1
+            end as version_increment
+        from updates
+    ) as with_version_increment
+) observations
+where type = @Type
+group by type, entity_id, version, hash
+order by type, entity_id, version;
+", new {Type = type});
         }
 
         public async Task<EntityUpdate> GetLastUpdate(NpgsqlConnection conn, UpdateType type, Guid? entityId = null)

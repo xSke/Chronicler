@@ -54,19 +54,14 @@ namespace SIBR.Storage.CLI
             
             return endpoint switch
             {
-                "allTeams" => ExtractTeamUpdates(timestamp, data),
-                "players" => ExtractPlayerUpdates(timestamp, data),
+                "allTeams" => EntityUpdate.FromArray(UpdateType.Team, _sourceId, timestamp, data),
+                "players" => EntityUpdate.FromArray(UpdateType.Player, _sourceId, timestamp, data),
                 "globalEvents" => new[] {EntityUpdate.From(UpdateType.GlobalEvents, _sourceId, timestamp, data)},
                 "offseasonSetup" => new[] {EntityUpdate.From(UpdateType.OffseasonSetup, _sourceId, timestamp, data)},
+                "idols" => new[] {EntityUpdate.From(UpdateType.Idols, _sourceId, timestamp, data)},
                 _ => ImmutableList<EntityUpdate>.Empty
             };
         }
-
-        private IEnumerable<EntityUpdate> ExtractPlayerUpdates(Instant timestamp, JToken playerUpdates) =>
-            EntityUpdate.FromArray(UpdateType.Player, _sourceId, timestamp, playerUpdates);
-        
-        private IEnumerable<EntityUpdate> ExtractTeamUpdates(Instant timestamp, JToken teamUpdates) =>
-            EntityUpdate.FromArray(UpdateType.Team, _sourceId, timestamp, teamUpdates);
 
         public override async Task Run(S3ImportOptions options)
         {

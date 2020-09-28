@@ -1,12 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
+using Npgsql;
 using SIBR.Storage.CLI.Import;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
+using SIBR.Storage.Data.Utils;
 
 namespace SIBR.Storage.CLI
 {
@@ -17,7 +20,7 @@ namespace SIBR.Storage.CLI
         private readonly GameStore _gameStore;
         private readonly GameUpdateStore _gameUpdateStore;
         private readonly Guid _sourceId;
-
+        
         public GameLogsImporter(IServiceProvider services, Guid sourceId) : base(services)
         {
             _sourceId = sourceId;
@@ -31,10 +34,15 @@ namespace SIBR.Storage.CLI
 
         protected override async Task ProcessFile(string filename, IAsyncEnumerable<JToken> entries)
         {
+            using var hasher = new SibrHasher();
             var streamUpdates = new List<EntityUpdate>();
             var miscUpdates = new List<EntityUpdate>();
             var gameUpdates = new List<GameUpdate>();
- 
+            var gameIds = new HashSet<Guid>();
+
+            var count = 0;
+
+            await using var conn = await _db.Obtain();
             await foreach (var entry in entries)
             {
                 var timestamp = ExtractTimestamp(entry);
@@ -44,26 +52,42 @@ namespace SIBR.Storage.CLI
                 var root = FindStreamRoot(entry as JObject);
                 streamUpdates.Add(EntityUpdate.From(UpdateType.Stream, _sourceId, timestamp.Value, root));
 
-                if (root["value"]?["games"]?["schedule"] is JArray scheduleObj)
-                    gameUpdates.AddRange(GameUpdate.FromArray(_sourceId, timestamp.Value, scheduleObj));
+                var updates = TgbUtils.ExtractUpdatesFromStreamRoot(_sourceId, timestamp.Value, root, hasher);
+                gameUpdates.AddRange(updates.GameUpdates);
+                miscUpdates.AddRange(updates.EntityUpdates);
 
-                if (root["value"]?["games"]?["sim"] is JObject simObj)
-                    miscUpdates.Add(EntityUpdate.From(UpdateType.Sim, _sourceId, timestamp.Value, simObj));
+                gameIds.UnionWith(updates.GameUpdates.Select(g => g.GameId));
+                if (count++ % 100 == 0) 
+                    await FlushUpdates(conn, streamUpdates, gameUpdates, miscUpdates);
             }
+            
+            await FlushUpdates(conn, streamUpdates, gameUpdates, miscUpdates);
+            await _gameStore.TryAddNewGameIds(conn, gameUpdates.Select(gu => gu.GameId));
+            await _gameUpdateStore.UpdateSearchIndex(conn);
+        }
 
-            await using var conn = await _db.Obtain();
+        private async Task FlushUpdates(NpgsqlConnection conn, List<EntityUpdate> streamUpdates, List<GameUpdate> gameUpdates, List<EntityUpdate> miscUpdates)
+        {
+            var sw = new Stopwatch();
+            sw.Start();
             await using (var tx = await conn.BeginTransactionAsync())
             {
                 var streamRes = await _updateStore.SaveUpdates(conn, streamUpdates, false);
-                await _gameUpdateStore.SaveGameUpdates(conn, gameUpdates, false);
+                await _gameUpdateStore.SaveGameUpdates(conn, gameUpdates, false, false);
                 var miscRes = await _updateStore.SaveUpdates(conn, miscUpdates, false);
-                _logger.Information(
-                    "- Imported {StreamUpdates} stream updates, {GameUpdates} game updates, {MiscUpdates} misc updates",
-                    streamRes, gameUpdates.Count, miscRes);
                 await tx.CommitAsync();
+                
+                sw.Stop();
+
+                var currentTime = streamUpdates.Min(su => su.Timestamp);
+                _logger.Information(
+                    "- @ {CurrentTime}: Imported {StreamUpdates} stream updates, {GameUpdates} game updates, {MiscUpdates} misc updates (in {Duration})",
+                    currentTime, streamRes, gameUpdates.Count, miscRes, sw.Elapsed);
             }
 
-            await _gameStore.TryAddNewGameIds(conn, gameUpdates.Select(gu => gu.GameId));
+            streamUpdates.Clear();
+            gameUpdates.Clear();
+            miscUpdates.Clear();
         }
 
         private JObject FindStreamRoot(JToken value)

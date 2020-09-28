@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using CommandLine;
 using Microsoft.Extensions.DependencyInjection;
+using SIBR.Storage.CLI.Export;
 using SIBR.Storage.CLI.Import;
 using SIBR.Storage.Data;
 using SIBR.Storage.Ingest;
@@ -13,25 +13,38 @@ namespace SIBR.Storage.CLI
     class Program
     {
         [Verb("import")]
-        public class ImportOptions
+        public class ImportCmd
         {
-            [Value(0, MetaName = "type")]
-            public string Type { get; set; }
-            
-            [Value(1, MetaName = "sourceid")]
-            public Guid SourceId { get; set; }
+            [Value(0, MetaName = "type")] public string Type { get; set; }
+
+            [Value(1, MetaName = "sourceid")] public Guid SourceId { get; set; }
 
             [Value(2, MetaName = "directory", HelpText = "The directory to read log files from")]
             public string Directory { get; set; }
         }
-        
+
         [Verb("migrations")]
-        public class Migrations
+        public class MigrationsCmd
         {
         }
 
         [Verb("ingest")]
-        public class Ingest
+        public class IngestCmd
+        {
+            [Value(0, MetaName = "sourceid")] public Guid SourceId { get; set; }
+        }
+
+        [Verb("export", HelpText = "Export data to files")]
+        public class ExportCmd
+        {
+            [Value(0, MetaName = "directory", HelpText = "Output directory")]
+            public string Directory { get; set; }
+
+            [Option("compress")] public bool Compress { get; set; }
+        }
+
+        [Verb("replay")]
+        public class ReplayCmd
         {
         }
 
@@ -44,28 +57,50 @@ namespace SIBR.Storage.CLI
                 .AddSingleton<GameLogsImporter>()
                 .AddSingleton<HourlyLogsImporter>()
                 .AddSingleton<IdolLogsImporter>()
+                .AddSingleton<FlatFileExport>()
+                .AddSingleton<StreamReplay>()
                 .BuildServiceProvider();
 
             var result = Parser.Default
-                .ParseArguments<ImportOptions, Migrations, Ingest>(args);
-            
-            if (result.TypeInfo.Current != typeof(Migrations))
+                .ParseArguments<ImportCmd, MigrationsCmd, IngestCmd, ExportCmd, ReplayCmd>(args);
+
+            if (result.TypeInfo.Current != typeof(MigrationsCmd))
                 // Init sets up NodaTime in a way that breaks Evolve, so don't do it if we're migrating
                 Database.Init();
 
-            await result.WithParsedAsync<ImportOptions>(opts => RunImport(services, opts));
+            await result.WithParsedAsync<ImportCmd>(opts => HandleImport(services, opts));
+            await result.WithParsedAsync<MigrationsCmd>(opts => HandleMigrations(services, opts));
+            await result.WithParsedAsync<IngestCmd>(opts => HandleIngest(services, opts));
+            await result.WithParsedAsync<ReplayCmd>(opts => HandleReplay(services, opts));
+            await result.WithParsedAsync<ExportCmd>(opts => HandleExport(services, opts));
+        }
 
-            await result.WithParsedAsync<Migrations>(_ =>
-                services.GetRequiredService<Database>().RunMigrations());
+        private static Task HandleMigrations(ServiceProvider services, MigrationsCmd _)
+        {
+            return services.GetRequiredService<Database>().RunMigrations();
+        }
 
-            await result.WithParsedAsync<Ingest>(async opts =>
+        private static async Task HandleIngest(ServiceProvider services, IngestCmd opts)
+        {
+            await Task.WhenAll(IngestWorkers.CreateWorkers(services, opts.SourceId)
+                .Select(w => w.Start()));
+        }
+
+        private static async Task HandleExport(ServiceProvider services, ExportCmd opts)
+        {
+            await services.GetRequiredService<FlatFileExport>().Run(new FlatFileExport.ExportOptions
             {
-                await Task.WhenAll(IngestWorkers.CreateWorkers(services, DataSources.ImmaterialAstridLocal)
-                    .Select(w => w.Start()));
+                OutDir = opts.Directory,
+                Compress = opts.Compress
             });
         }
 
-        private static async Task RunImport(ServiceProvider services, ImportOptions opts)
+        private static async Task HandleReplay(ServiceProvider services, ReplayCmd _)
+        {
+            await services.GetRequiredService<StreamReplay>().Run();
+        }
+
+        private static async Task HandleImport(ServiceProvider services, ImportCmd opts)
         {
             S3FileImporter importer = opts.Type switch
             {
@@ -81,4 +116,4 @@ namespace SIBR.Storage.CLI
             });
         }
     }
-};
+}

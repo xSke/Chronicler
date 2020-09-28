@@ -35,8 +35,10 @@ namespace SIBR.Storage.Data.Utils
             }
         }
 
-        public static ExtractOutput ExtractUpdatesFromStreamRoot(Guid sourceId, Instant timestamp, JObject root)
+        public static ExtractOutput ExtractUpdatesFromStreamRoot(Guid sourceId, Instant timestamp, JObject root, SibrHasher hasher)
         {
+            var output = new ExtractOutput();
+
             IEnumerable<EntityUpdate> GetUpdates(params (UpdateType type, string path)[] updates)
             {
                 return updates.SelectMany(item =>
@@ -44,17 +46,22 @@ namespace SIBR.Storage.Data.Utils
                         .Select(token => EntityUpdate.From(item.type, sourceId, timestamp, token)));
             }
 
-            var output = new ExtractOutput();
             output.EntityUpdates.AddRange(GetUpdates(
                 (UpdateType.Sim, "value.games.sim"),
+                (UpdateType.Season, "value.games.season"),
                 (UpdateType.Standings, "value.games.standings"),
-                (UpdateType.Team, "value.leagues.teams.*"),
-                (UpdateType.Tiebreakers, "value.leagues.tiebreakers"),
+                (UpdateType.Team, "value.leagues.teams[*]"),
+                (UpdateType.League, "value.leagues.leagues[*]"),
+                (UpdateType.Subleague, "value.leagues.subleagues[*]"),
+                (UpdateType.Division, "value.leagues.divisions[*]"),
+                (UpdateType.Tiebreakers, "value.leagues.tiebreakers[*]"),
                 (UpdateType.Temporal, "value.temporal")
-            ).ToList());
+            ));
 
             if (root["value"]?["games"]?["schedule"] is JArray schedule)
-                output.GameUpdates.AddRange(GameUpdate.FromArray(sourceId, timestamp, schedule));
+                output.GameUpdates.AddRange(GameUpdate.FromArray(sourceId, timestamp, schedule, hasher));
+            // if (root["value"]?["games"]?["tomorrowSchedule"] is JArray tomorrowSchedule)
+                // output.GameUpdates.AddRange(GameUpdate.FromArray(sourceId, timestamp, tomorrowSchedule));
 
             return output;
         }

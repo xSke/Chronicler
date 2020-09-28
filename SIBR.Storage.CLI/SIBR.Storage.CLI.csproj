@@ -14,8 +14,4 @@
       <PackageReference Include="CommandLineParser" Version="2.8.0" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Export" />
-    </ItemGroup>
-
 </Project>

@@ -72,7 +72,8 @@ namespace SIBR.Storage.Data
                 EmbeddedResourceAssemblies = new[] {typeof(Database).Assembly},
                 IsEraseDisabled = true,
                 SqlMigrationPrefix = "v",
-                SqlRepeatableMigrationPrefix = "r"
+                SqlRepeatableMigrationPrefix = "r",
+                CommandTimeout = 9999999 // some of these are really long!
             };
 
             // Evolve isn't async >.>

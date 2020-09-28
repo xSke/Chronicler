@@ -43,7 +43,22 @@ namespace SIBR.Storage.CLI.Import
             await using var gz = new GZipStream(stream, CompressionMode.Decompress);
             using var reader = new StreamReader(gz, bufferSize: 8192);
 
-            string line;
+            using var json = new JsonTextReader(reader)
+            {
+                SupportMultipleContent = true
+            };
+
+            var serializer = new JsonSerializer();
+            while (await json.ReadAsync())
+            {
+                var token = serializer.Deserialize<JToken>(json);
+                if (token != null)
+                    yield return token;
+                else
+                    // Early out of entire file if parse error since we're reading by line
+                    break;
+            }
+            /*string line;
             while ((line = await reader.ReadLineAsync()) != null)
             {
                 JToken token = null;
@@ -61,7 +76,7 @@ namespace SIBR.Storage.CLI.Import
                 else
                     // Early out of entire file if parse error since we're reading by line
                     break;
-            }
+            }*/
         }
         
         protected Instant? ExtractTimestamp(JToken obj)

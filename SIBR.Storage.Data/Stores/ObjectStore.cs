@@ -12,11 +12,14 @@ namespace SIBR.Storage.Data
 {
     public class ObjectStore
     {
+        private readonly HashSet<Guid> _knownObjects = new HashSet<Guid>();
+        
         public async Task SaveObjects(NpgsqlConnection conn, IEnumerable<IJsonObject> updates)
         {
             var dictionary = new Dictionary<Guid, JToken>();
             foreach (var obj in updates)
-                dictionary[obj.Hash] = obj.Data;
+                if (_knownObjects.Add(obj.Hash))
+                    dictionary[obj.Hash] = obj.Data;
             var entries = dictionary.ToList();
             
             await conn.ExecuteAsync(

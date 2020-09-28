@@ -44,7 +44,8 @@ namespace SIBR.Storage.Ingest
 
             // var gamesRes = await SaveGameUpdates(data, conn, timestamp);
 
-            var updates = TgbUtils.ExtractUpdatesFromStreamRoot(_sourceId, timestamp, data).EntityUpdates;
+            using var hasher = new SibrHasher();
+            var updates = TgbUtils.ExtractUpdatesFromStreamRoot(_sourceId, timestamp, data, hasher).EntityUpdates;
             var miscRes = await _updateStore.SaveUpdates(conn, updates);
             
             _logger.Information("Received stream update, saved {MiscUpdates} updates", miscRes);

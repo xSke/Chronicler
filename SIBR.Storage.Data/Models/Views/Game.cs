@@ -11,5 +11,8 @@ namespace SIBR.Storage.Data.Models
         [JsonPropertyName("start")] public Instant? StartTime { get; set; }
         [JsonPropertyName("end")] public Instant? EndTime { get; set; }
         public JsonElement Data { get; set; }
+        
+        [JsonIgnore] public int Season => Data.GetProperty("season").GetInt32();
+        [JsonIgnore] public int Day => Data.GetProperty("day").GetInt32();
     }
 }

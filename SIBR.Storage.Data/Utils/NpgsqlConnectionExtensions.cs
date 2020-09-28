@@ -17,7 +17,15 @@ namespace SIBR.Storage.Data.Utils
             while (await reader.ReadAsync())
                 yield return parser(reader); 
         }
-        
+
+        public static async IAsyncEnumerable<T> QueryStreamAsync<T>(this Database db, string sql, object param)
+        {
+            await using var conn = await db.Obtain();
+            
+            await foreach (var value in conn.QueryStreamAsync<T>(sql, param))
+                yield return value;
+        }
+
         public static async IAsyncEnumerable<T> QueryKataAsync<T>(this NpgsqlConnection conn, Query query)
         {
             var compiled = new PostgresCompiler().Compile(query);

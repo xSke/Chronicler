@@ -13,6 +13,10 @@
         Sim = 9,
         GlobalEvents = 10,
         OffseasonSetup = 11,
-        Standings = 12
+        Standings = 12,
+        Season = 13,
+        League = 15,
+        Subleague = 16,
+        Division = 17
     }
 }
