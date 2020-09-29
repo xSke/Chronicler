@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using NodaTime;
 using SIBR.Storage.API.Utils;
 using SIBR.Storage.Data.Models;
+using SIBR.Storage.Data.Utils;
 
 namespace SIBR.Storage.API.Controllers.Models
 {
@@ -19,5 +20,7 @@ namespace SIBR.Storage.API.Controllers.Models
         public int RosterIndex { get; set; }
         
         public JsonElement Data { get; set; }
+        public PlayerStars Stars =>
+            PlayerStars.CalculateStars(Data);
     }
 }

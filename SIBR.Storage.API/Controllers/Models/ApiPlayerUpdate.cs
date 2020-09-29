@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Text.Json;
 using NodaTime;
+using SIBR.Storage.Data.Utils;
 
 namespace SIBR.Storage.API.Controllers.Models
 {
@@ -11,5 +12,7 @@ namespace SIBR.Storage.API.Controllers.Models
         public Instant LastSeen { get; set; }
         public Guid Hash { get; set; }
         public JsonElement Data { get; set; }
+        public PlayerStars Stars =>
+            PlayerStars.CalculateStars(Data);
     }
 }
