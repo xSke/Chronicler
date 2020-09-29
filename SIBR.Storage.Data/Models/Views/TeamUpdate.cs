@@ -6,6 +6,7 @@ namespace SIBR.Storage.Data.Models
 {
     public class TeamUpdate
     {
+        public Guid UpdateId { get; set; }
         public Instant FirstSeen { get; set; }
         public Instant LastSeen { get; set; }
         public Guid TeamId { get; set; }

@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using NodaTime;
 
 namespace SIBR.Storage.Data.Models
 {
     public class Player
     {
+        public Guid UpdateId { get; set; }
         public Guid PlayerId { get; set; }
         public Instant Timestamp { get; set; }
         public JsonElement Data { get; set; }

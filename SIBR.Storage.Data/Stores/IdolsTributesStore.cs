@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using Dapper;
 using NodaTime;
 using SIBR.Storage.Data.Models;
 using SIBR.Storage.Data.Utils;
@@ -27,30 +25,25 @@ namespace SIBR.Storage.Data
         private IAsyncEnumerable<TributesUpdate> GetTributeUpdatesInner(string table, TributesQuery opts)
         {
             var q = new Query()
-                .SelectRaw("timestamp, array_agg(player_id) as players, array_agg(peanuts) as peanuts")
+                .SelectRaw("update_id, timestamp, array_agg(player_id) as players, array_agg(peanuts) as peanuts")
                 .From(table)
-                .GroupBy("timestamp");
-
-            if (opts.Reverse)
-                q.OrderByDesc("timestamp");
-            else
-                q.OrderBy("timestamp");
-
-            if (opts.Before != null) q.Where("timestamp", "<", opts.Before.Value);
-            if (opts.After != null) q.Where("timestamp", ">", opts.After.Value);
-            if (opts.Players != null) q.WhereIn("player_id", opts.Players);
-            if (opts.Count != null) q.Limit(opts.Count.Value);
+                .GroupBy("timestamp", "update_id")
+                .ApplyFrom(opts, "timestamp", "updates");
+            
+            if (opts.Players != null)
+                q.WhereIn("player_id", opts.Players);
 
             return _db.QueryKataAsync<TributesUpdate>(q);
         }
 
-        public class TributesQuery
+        public class TributesQuery: IUpdateQueryOpts
         {
-            public Guid[] Players;
-            public Instant? Before;
-            public Instant? After;
-            public int? Count;
-            public bool Reverse;
+            public Guid[] Players { get; set; }
+            public Instant? Before { get; set; }
+            public Instant? After { get; set; }
+            public int? Count { get; set; }
+            public bool Reverse { get; set; }
+            public Guid? PageUpdateId { get; set; }
         }
     }
 }

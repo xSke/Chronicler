@@ -6,6 +6,7 @@ namespace SIBR.Storage.Data.Models
 {
     public class EntityUpdateView
     {
+        public Guid UpdateId;
         public UpdateType Type;
         public Guid SourceId;
         public Instant Timestamp;

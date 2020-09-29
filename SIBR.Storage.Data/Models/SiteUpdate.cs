@@ -26,6 +26,7 @@ namespace SIBR.Storage.Data.Models
                 Timestamp = timestamp,
                 Hash = SibrHash.HashAsGuid(data),
                 Data = data,
+                LastModified = lastModified
             };
         }
     }

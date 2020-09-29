@@ -41,13 +41,14 @@ namespace SIBR.Storage.Data
         {
             await _objectStore.SaveBinaryObjects(conn, updates);
             await conn.ExecuteAsync(
-                "insert into site_updates(source_id, timestamp, path, hash) select unnest(@SourceId), unnest(@Timestamp), unnest(@Path), unnest(@Hash) on conflict do nothing",
+                "insert into site_updates(source_id, timestamp, path, hash, last_modified) select unnest(@SourceId), unnest(@Timestamp), unnest(@Path), unnest(@Hash), unnest(@LastModified) on conflict do nothing",
                 new
                 {
                     SourceId = updates.Select(u => u.SourceId).ToArray(),
                     Timestamp = updates.Select(u => u.Timestamp).ToArray(),
                     Path = updates.Select(u => u.Path).ToArray(),
-                    Hash = updates.Select(u => u.Hash).ToArray()
+                    Hash = updates.Select(u => u.Hash).ToArray(),
+                    LastModified = updates.Select(u => u.LastModified ?? default).ToArray()
                 });
         }
     }

@@ -1,32 +1,37 @@
-﻿create or replace view versions_view as
-with last_for_each as (
-    select type, entity_id, max(timestamp) as timestamp from updates group by (type, entity_id)
-)
-select versions.entity_id,
-       versions.type,
-       versions.first_seen,
-       coalesce(versions.last_seen, last_for_each.timestamp) as last_seen,
-       versions.hash,
-       versions.data
-from (
-         select type,
-                entity_id,
-                timestamp                                                                     as first_seen,
-                lead(last_timestamp) over (partition by (type, entity_id) order by timestamp) as last_seen,
-                hash,
-                (select data from objects where objects.hash = updates.hash)                  as data
-         from (
-                  select timestamp,
-                         hash,
-                         entity_id,
-                         type,
-                         lag(hash) over (partition by (type, entity_id) order by timestamp)      as last_hash,
-                         lag(timestamp) over (partition by (type, entity_id) order by timestamp) as last_timestamp
-                  from updates
-              ) as updates
-         where (last_hash is null or last_hash != hash)
-     ) as versions
-         left join last_for_each on last_for_each.type = versions.type and last_for_each.entity_id = versions.entity_id;
+﻿create or replace view observations_versioned_view as
+    select
+        update_id,
+        type,
+        entity_id, 
+        timestamp,
+        hash,
+        version_increment = 1 as is_new_version,
+        lag(timestamp) over w as prev_timestamp,
+        sum(version_increment) over w as version
+    from (
+        select 
+            update_id, type, timestamp, hash, entity_id,
+            case
+                when (lag(hash) over w) is distinct from hash then 1
+            end as version_increment
+        from updates
+        window w as (partition by type, entity_id order by timestamp)
+    ) as observations_with_increment
+    window w as (partition by type, entity_id order by timestamp, update_id);
 
-
-
+create or replace view versions_view as
+    select
+        entity_id,
+        type,
+        timestamp as first_seen,
+        coalesce(
+            lead(prev_timestamp) over (partition by type, entity_id order by timestamp),
+            (select max(timestamp) from updates u where u.hash = hash)
+        ) as last_seen,
+        hash,
+        data,
+        version,
+        update_id
+    from observations_versioned_view
+    inner join objects using (hash)
+    where is_new_version;

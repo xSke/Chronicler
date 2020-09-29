@@ -7,7 +7,8 @@ namespace SIBR.Storage.API.Controllers.Models
 {
     public class ApiPlayerUpdate
     {
-        public Guid Id { get; set; }
+        public Guid UpdateId { get; set; }
+        public Guid PlayerId { get; set; }
         public Instant FirstSeen { get; set; }
         public Instant LastSeen { get; set; }
         public Guid Hash { get; set; }

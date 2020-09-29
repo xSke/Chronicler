@@ -27,7 +27,7 @@ namespace SIBR.Storage.Data
         public IAsyncEnumerable<TeamUpdate> GetTeamUpdates(TeamUpdateQueryOpts opts)
         {
             var q = new Query("team_versions")
-                .ApplyFrom(opts, "first_seen");
+                .ApplyFrom(opts, "first_seen", "team_versions");
 
             if (opts.Teams != null)
                 q.WhereIn("team_id", opts.Teams);
@@ -42,6 +42,7 @@ namespace SIBR.Storage.Data
             public Instant? After { get; set; }
             public int? Count { get; set; }
             public bool Reverse { get; set; }
+            public Guid? PageUpdateId { get; set; }
         }
     }
 }

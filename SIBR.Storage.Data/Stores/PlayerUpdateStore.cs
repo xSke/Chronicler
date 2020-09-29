@@ -36,16 +36,11 @@ namespace SIBR.Storage.Data
 
         public IAsyncEnumerable<PlayerUpdate> GetPlayerVersions(PlayerUpdateQuery opts)
         {
-            var q = new Query("player_versions");
-            if (opts.Reverse)
-                q.OrderByDesc("first_seen");
-            else
-                q.OrderBy("first_seen");
-
-            if (opts.Players != null) q.WhereIn("player_id", opts.Players);
-            if (opts.Before != null) q.Where("first_seen", "<", opts.Before.Value);
-            if (opts.After != null) q.Where("first_seen", ">", opts.After.Value);
-            if (opts.Count != null) q.Limit(opts.Count.Value);
+            var q = new Query("player_versions")
+                .ApplyFrom(opts, "first_seen", "player_versions");
+            
+            if (opts.Players != null)
+                q.WhereIn("player_id", opts.Players);
 
             return _db.QueryKataAsync<PlayerUpdate>(q);
         }
@@ -61,13 +56,14 @@ namespace SIBR.Storage.Data
             public Guid PlayerId { get; set; }
         }
 
-        public class PlayerUpdateQuery
+        public class PlayerUpdateQuery: IUpdateQueryOpts
         {
-            public Guid[] Players;
-            public Instant? Before;
-            public Instant? After;
-            public bool Reverse;
-            public int? Count;
+            public Guid[] Players { get; set; }
+            public Instant? Before { get; set; }
+            public Instant? After { get; set; }
+            public bool Reverse { get; set; }
+            public int? Count { get; set; }
+            public Guid? PageUpdateId { get; set; }
         }
     }
 }

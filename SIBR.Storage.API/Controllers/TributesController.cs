@@ -1,16 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Diagnostics;
-using System.Dynamic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CsvHelper;
-using CsvHelper.Configuration;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json.Linq;
 using NodaTime;
 using Serilog;
 using SIBR.Storage.API.Controllers.Models;
@@ -65,7 +61,8 @@ namespace SIBR.Storage.API.Controllers
                 After = opts.After,
                 Count = opts.Count ?? defaultCount,
                 Reverse = opts.Order == IUpdateQuery.ResultOrder.Desc,
-                Players = opts.Players
+                Players = opts.Players,
+                PageUpdateId = opts.Page
             };
         }
 
@@ -119,6 +116,7 @@ namespace SIBR.Storage.API.Controllers
 
             return new ApiTributeUpdate
             {
+                UpdateId = tributes.UpdateId,
                 Timestamp = tributes.Timestamp,
                 Players = players
             };
@@ -129,6 +127,7 @@ namespace SIBR.Storage.API.Controllers
             public Instant? Before { get; set; }
             public Instant? After { get; set; }
             public IUpdateQuery.ResultOrder Order { get; set; }
+            public Guid? Page { get; set; }
             [Range(1, 1000)] public int? Count { get; set; }
             
             [ModelBinder(BinderType = typeof(CommaSeparatedBinder))]

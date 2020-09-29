@@ -45,14 +45,16 @@ namespace SIBR.Storage.API.Controllers
                 After = query.After,
                 Before = query.Before,
                 Count = query.Count ?? 100,
-                Reverse = query.Order == IUpdateQuery.ResultOrder.Desc
+                Reverse = query.Order == IUpdateQuery.ResultOrder.Desc,
+                PageUpdateId = query.Page
             }).Select(ToApiTeamUpdate);
         }
 
         private ApiTeamUpdate ToApiTeamUpdate(TeamUpdate update) =>
             new ApiTeamUpdate
             {
-                Id = update.TeamId,
+                UpdateId = update.UpdateId,
+                TeamId = update.TeamId,
                 FirstSeen = update.FirstSeen,
                 LastSeen = update.LastSeen,
                 Hash = update.Hash,
@@ -66,6 +68,7 @@ namespace SIBR.Storage.API.Controllers
             public Instant? Before { get; set; }
             public Instant? After { get; set; }
             public IUpdateQuery.ResultOrder Order { get; set; }
+            public Guid? Page { get; set; }
             [Range(1, 250)] public int? Count { get; set; }
         }
     }

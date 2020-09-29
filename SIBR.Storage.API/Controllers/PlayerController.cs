@@ -38,7 +38,8 @@ namespace SIBR.Storage.API.Controllers
                 After = query.After,
                 Before = query.Before,
                 Players = query.Player,
-                Reverse = query.Order == IUpdateQuery.ResultOrder.Desc
+                Reverse = query.Order == IUpdateQuery.ResultOrder.Desc,
+                PageUpdateId = query.Page
             });
             
             return Ok(updates.Select(ToApiPlayerUpdate));
@@ -67,7 +68,8 @@ namespace SIBR.Storage.API.Controllers
         private ApiPlayerUpdate ToApiPlayerUpdate(PlayerUpdate arg) =>
             new ApiPlayerUpdate
             {
-                Id = arg.PlayerId,
+                UpdateId = arg.UpdateId,
+                PlayerId = arg.PlayerId,
                 FirstSeen = arg.FirstSeen,
                 LastSeen = arg.LastSeen,
                 Hash = arg.Hash,
@@ -80,6 +82,7 @@ namespace SIBR.Storage.API.Controllers
             public Instant? Before { get; set; }
             public Instant? After { get; set; }
             public IUpdateQuery.ResultOrder Order { get; set; }
+            public Guid? Page { get; set; }
             public int? Count { get; set; }
         }
     }

@@ -52,6 +52,7 @@ namespace SIBR.Storage.API.Controllers
             public Instant? Before { get; set; }
             public Instant? After { get; set; }
             public IUpdateQuery.ResultOrder Order { get; set; }
+            public Guid? Page => null;
             [Range(1, 1000)] public int? Count { get; set; }
         }
     }
