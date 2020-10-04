@@ -21,7 +21,7 @@ namespace SIBR.Storage.Data.Utils
         public static PlayerStars CalculateStars(JsonElement playerData)
         {
             return new PlayerStars(
-                CalculateBattingStars(
+                CalculateBattingSkill(
                     playerData.GetProperty("tragicness").GetDouble(),
                     playerData.GetProperty("buoyancy").GetDouble(),
                     playerData.GetProperty("thwackability").GetDouble(),
@@ -30,33 +30,33 @@ namespace SIBR.Storage.Data.Utils
                     playerData.GetProperty("musclitude").GetDouble(),
                     playerData.GetProperty("patheticism").GetDouble(),
                     playerData.GetProperty("martyrdom").GetDouble()
-                ),
-                CalculatePitchingStars(
+                ) * 5,
+                CalculatePitchingSkill(
                     playerData.GetProperty("shakespearianism").GetDouble(),
                     playerData.GetProperty("suppression").GetDouble(),
                     playerData.GetProperty("unthwackability").GetDouble(),
                     playerData.GetProperty("coldness").GetDouble(),
                     playerData.GetProperty("overpowerment").GetDouble(),
                     playerData.GetProperty("ruthlessness").GetDouble()
-                ),
-                CalculateBaserunningStars(
+                ) * 5,
+                CalculateBaserunningSkill(
                     playerData.GetProperty("laserlikeness").GetDouble(),
                     playerData.GetProperty("continuation").GetDouble(),
                     playerData.GetProperty("baseThirst").GetDouble(),
                     playerData.GetProperty("indulgence").GetDouble(),
                     playerData.GetProperty("groundFriction").GetDouble()
-                ),
-                CalculateDefenseStars(
+                ) * 5,
+                CalculateDefenseSkill(
                     playerData.GetProperty("omniscience").GetDouble(),
                     playerData.GetProperty("tenaciousness").GetDouble(),
                     playerData.GetProperty("watchfulness").GetDouble(),
                     playerData.GetProperty("anticapitalism").GetDouble(),
                     playerData.GetProperty("chasiness").GetDouble()
-                )
+                ) * 5
             );
         }
 
-        public static double CalculateBattingStars(
+        public static double CalculateBattingSkill(
             double tragicness,
             double buoyancy,
             double thwackability,
@@ -66,8 +66,7 @@ namespace SIBR.Storage.Data.Utils
             double patheticisim,
             double martyrdom)
         {
-            return 5 *
-                   Math.Pow(1 - tragicness, 0.01) *
+            return Math.Pow(1 - tragicness, 0.01) *
                    Math.Pow(buoyancy, 0) *
                    Math.Pow(thwackability, 0.35) *
                    Math.Pow(moxie, 0.075) *
@@ -77,7 +76,7 @@ namespace SIBR.Storage.Data.Utils
                    Math.Pow(martyrdom, 0.02);
         }
 
-        public static double CalculatePitchingStars(
+        public static double CalculatePitchingSkill(
             double shakespearianism,
             double suppression,
             double unthwackability,
@@ -85,8 +84,7 @@ namespace SIBR.Storage.Data.Utils
             double overpowerment,
             double ruthlessness)
         {
-            return 5 *
-                   Math.Pow(shakespearianism, 0.1) *
+            return Math.Pow(shakespearianism, 0.1) *
                    Math.Pow(suppression, 0) *
                    Math.Pow(unthwackability, 0.5) *
                    Math.Pow(coldness, 0.025) *
@@ -94,30 +92,28 @@ namespace SIBR.Storage.Data.Utils
                    Math.Pow(ruthlessness, 0.4);
         }
 
-        public static double CalculateBaserunningStars(
+        public static double CalculateBaserunningSkill(
             double laserlikeness,
             double continuation,
             double baseThirst,
             double indulgence,
             double groundFriction)
         {
-            return 5 *
-                   Math.Pow(laserlikeness, 0.5) *
+            return Math.Pow(laserlikeness, 0.5) *
                    Math.Pow(continuation, 0.1) *
                    Math.Pow(baseThirst, 0.1) *
                    Math.Pow(indulgence, 0.1) *
                    Math.Pow(groundFriction, 0.1);
         }
 
-        public static double CalculateDefenseStars(
+        public static double CalculateDefenseSkill(
             double omniscience,
             double tenaciousness,
             double watchfulness,
             double anticapitalism,
             double chasiness)
         {
-            return 5 *
-                   Math.Pow(omniscience, 0.2) *
+            return Math.Pow(omniscience, 0.2) *
                    Math.Pow(tenaciousness, 0.2) *
                    Math.Pow(watchfulness, 0.2) *
                    Math.Pow(anticapitalism, 0.1) *

@@ -31,10 +31,10 @@ namespace SIBR.Storage.Data
             });
         }
 
-        public IAsyncEnumerable<EntityVersion> ExportAllUpdatesGrouped(UpdateType type)
+        public IAsyncEnumerable<EntityVersionView> ExportAllUpdatesGrouped(UpdateType type)
         {
             // todo: move to view
-            return _db.QueryStreamAsync<EntityVersion>(@"
+            return _db.QueryStreamAsync<EntityVersionView>(@"
 select
     type,
     entity_id,

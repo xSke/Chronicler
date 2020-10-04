@@ -14,7 +14,7 @@ using SIBR.Storage.Data.Models;
 
 namespace SIBR.Storage.API.Controllers
 {
-    [Route("internal"), ApiController]
+    [Route("v{version:apiVersion}"), ApiController, ApiVersion("1.0")]
     public class IngestController : ControllerBase
     {
         private readonly IConfiguration _config;
@@ -32,7 +32,7 @@ namespace SIBR.Storage.API.Controllers
             _gameUpdateStore = gameUpdateStore;
         }
 
-        [HttpPost, Route("updates")]
+        [HttpPost, Route("internal/updates")]
         public async Task<IActionResult> SaveUpdates([FromQuery, Required] Guid source,
             [FromBody] IEnumerable<IngestUpdate> updates)
         {
@@ -53,7 +53,7 @@ namespace SIBR.Storage.API.Controllers
             return Ok($"Saved {newUpdates} updates.");
         }
         
-        [HttpPost, Route("gameupdates")]
+        [HttpPost, Route("internal/gameupdates")]
         public async Task<IActionResult> SaveGameUpdates([FromQuery, Required] Guid source,
             [FromBody] IEnumerable<IngestGameUpdate> updates)
         {

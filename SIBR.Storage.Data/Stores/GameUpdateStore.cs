@@ -8,6 +8,7 @@ using NodaTime;
 using Npgsql;
 using Serilog;
 using SIBR.Storage.Data.Models;
+using SIBR.Storage.Data.Query;
 using SIBR.Storage.Data.Utils;
 using SqlKata;
 
@@ -28,20 +29,14 @@ namespace SIBR.Storage.Data
 
         public IAsyncEnumerable<GameUpdateView> GetGameUpdates(GameUpdateQueryOptions opts)
         {
-            var q = new Query("game_updates_unique")
+            var q = new SqlKata.Query("game_updates_unique")
                 .Select("game_id", "timestamp", "hash", "data")
-                .Limit(opts.Count);
-
-            if (opts.Reverse)
-                q.OrderByDesc("timestamp");
-            else
-                q.OrderBy("timestamp");
+                .ApplyBounds(opts, "timestamp")
+                .ApplySorting(opts, "timestamp", "hash");
 
             if (opts.Season != null) q.Where("season", opts.Season.Value);
             if (opts.Day != null) q.Where("day", opts.Day.Value);
             if (opts.Game != null) q.WhereIn("game_id", opts.Game);
-            if (opts.Before != null) q.Where("timestamp", "<", opts.Before.Value);
-            if (opts.After != null) q.Where("timestamp", ">", opts.After.Value);
             if (opts.Search != null) q.WhereRaw("search_tsv @@ websearch_to_tsquery(?)", opts.Search);
             if (opts.Started != null) q.WhereRaw("(data->>'gameStart')::bool = ?", opts.Started.Value);
 
@@ -122,17 +117,18 @@ insert into game_updates_unique (hash, game_id, timestamp, data, season, day, se
             }
         }
 
-        public class GameUpdateQueryOptions
+        public class GameUpdateQueryOptions: IPaginatedQuery, IBoundedQuery<Instant>
         {
-            public int? Season;
-            public int? Day;
-            public Guid[] Game;
-            public Instant? Before;
-            public Instant? After;
-            public bool Reverse;
-            public int Count;
-            public string Search;
-            public bool? Started;
+            public int? Season { get; set; }
+            public int? Day { get; set; }
+            public Guid[] Game { get; set; }
+            public Instant? Before { get; set; }
+            public Instant? After { get; set; }
+            public SortOrder Order { get; set; }
+            public int? Count { get; set; }
+            public string Search { get; set; }
+            public bool? Started { get; set; }
+            public PageToken Page { get; set; }
         }
     }
 }

@@ -4,8 +4,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
 using Npgsql;
 using SIBR.Storage.Data.Models;
+using SIBR.Storage.Data.Query;
 using SIBR.Storage.Data.Utils;
 
 namespace SIBR.Storage.Data
@@ -21,13 +23,14 @@ namespace SIBR.Storage.Data
             _objectStore = objectStore;
         }
 
-        public async IAsyncEnumerable<SiteUpdateUnique> GetUniqueSiteUpdates()
+        public IAsyncEnumerable<SiteUpdateView> GetUniqueSiteUpdates(SiteUpdateQueryOpts opts)
         {
-            await using var conn = await _db.Obtain();
-            
-            var stream = conn.QueryStreamAsync<SiteUpdateUnique>("select hash, path, timestamp, size from site_updates_unique order by timestamp desc", new{});
-            await foreach (var update in stream)
-                yield return update;
+            var q = new SqlKata.Query("site_updates_unique")
+                .Select("hash", "path", "timestamp", "size")
+                .ApplySorting(opts, "timestamp", "hash")
+                .ApplyBounds(opts, "timestamp");
+
+            return _db.QueryKataAsync<SiteUpdateView>(q);
         }
 
         public async Task<byte[]> GetObjectData(Guid hash)
@@ -50,6 +53,14 @@ namespace SIBR.Storage.Data
                     Hash = updates.Select(u => u.Hash).ToArray(),
                     LastModified = updates.Select(u => u.LastModified ?? default).ToArray()
                 });
+        }
+        
+        public class SiteUpdateQueryOpts: ISortedQuery, IBoundedQuery<Instant>
+        {
+            public int? Count { get; set; }
+            public SortOrder Order { get; set; }
+            public Instant? Before { get; set; }
+            public Instant? After { get; set; }
         }
     }
 }

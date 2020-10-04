@@ -26,7 +26,7 @@ namespace SIBR.Storage.Data.Utils
                 yield return value;
         }
 
-        public static async IAsyncEnumerable<T> QueryKataAsync<T>(this NpgsqlConnection conn, Query query)
+        public static async IAsyncEnumerable<T> QueryKataAsync<T>(this NpgsqlConnection conn, SqlKata.Query query)
         {
             var compiled = new PostgresCompiler().Compile(query);
             await using var reader = await conn.ExecuteReaderAsync(compiled.Sql, compiled.NamedBindings);
@@ -36,7 +36,7 @@ namespace SIBR.Storage.Data.Utils
                 yield return parser(reader); 
         }
         
-        public static async IAsyncEnumerable<T> QueryKataAsync<T>(this Database db, Query query)
+        public static async IAsyncEnumerable<T> QueryKataAsync<T>(this Database db, SqlKata.Query query)
         {
             await using var conn = await db.Obtain();
             

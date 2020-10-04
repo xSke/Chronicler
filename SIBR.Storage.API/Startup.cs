@@ -7,6 +7,7 @@ using NodaTime;
 using NodaTime.Serialization.JsonNet;
 using NodaTime.Serialization.SystemTextJson;
 using SIBR.Storage.Data;
+using SIBR.Storage.Data.Query;
 
 namespace SIBR.Storage.API
 {
@@ -29,7 +30,11 @@ namespace SIBR.Storage.API
             services.AddControllers().AddJsonOptions(opts =>
             {
                 opts.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+                
+                // Can't specify this in an attribute, otherwise it'll recurse
+                opts.JsonSerializerOptions.Converters.Add(new PageTokenJsonConverter());
             });
+            services.AddApiVersioning();
 
             services.AddCors();
         }

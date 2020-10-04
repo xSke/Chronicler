@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using NodaTime;
 using Npgsql;
 using SIBR.Storage.Data.Models;
+using SIBR.Storage.Data.Query;
 using SIBR.Storage.Data.Utils;
 using SqlKata;
 
@@ -19,11 +20,11 @@ namespace SIBR.Storage.Data
             _db = db;
         }
         
-        public IAsyncEnumerable<Game> GetGames(GameQueryOptions opts)
+        public IAsyncEnumerable<GameView> GetGames(GameQueryOptions opts)
         {
-            var q = new Query("games_view");
+            var q = new SqlKata.Query("games_view");
             
-            if (opts.Reverse)
+            if (opts.Order == SortOrder.Desc)
                 q.OrderByDesc("season", "day");
             else
                 q.OrderBy("season", "day");
@@ -40,7 +41,7 @@ namespace SIBR.Storage.Data
             if (opts.Weather != null) q.WhereIn("weather", opts.Weather);
             if (opts.Count != null) q.Limit(opts.Count.Value);
 
-            return _db.QueryKataAsync<Game>(q);
+            return _db.QueryKataAsync<GameView>(q);
         }
 
         public async Task TryAddNewGameIds(NpgsqlConnection conn, IEnumerable<Guid> gameIds)
@@ -60,7 +61,7 @@ namespace SIBR.Storage.Data
             public int? Day;
             public Instant? Before;
             public Instant? After;
-            public bool Reverse;
+            public SortOrder Order;
             public int? Count;
             public bool? HasOutcomes;
             public bool? HasFinished;

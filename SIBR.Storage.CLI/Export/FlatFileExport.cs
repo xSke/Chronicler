@@ -78,7 +78,7 @@ namespace SIBR.Storage.CLI.Export
             {
                 await Task.Yield();
 
-                var (season, day) = (game.Season, game.Day);
+                var (season, day) = (((IGameData) game).Season, ((IGameData) game).Day);
                 var filename = Path.Join(outDir, $"season{season}", $"day{day}", $"{game.GameId}.json");
 
                 var updates = _gameUpdateStore.GetGameUpdates(new GameUpdateStore.GameUpdateQueryOptions
@@ -114,7 +114,7 @@ namespace SIBR.Storage.CLI.Export
             sw.Start();
 
             var versions = _updateStore.ExportAllUpdatesGrouped(type);
-            await foreach (var group in versions.GroupByConsecutive(v => v.Observations.Min().InUtc().Date))
+            await foreach (var group in versions.GroupByConsecutive(v => v.ObservationTimestamps.Min().InUtc().Date))
             {
                 var filename = $"{outPrefix}{group.Key:R}.json";
                 _logger.Information("Exporting {EntityType} to {OutFile}", type, filename);
@@ -134,25 +134,25 @@ namespace SIBR.Storage.CLI.Export
 
             var versionId = 0;
 
-            async IAsyncEnumerable<EntityVersion> Versioned()
+            async IAsyncEnumerable<EntityVersionView> Versioned()
             {
                 await foreach (var version in versions.GroupByConsecutive(u => u.Hash))
                 {
-                    var vers = new EntityVersion
+                    var vers = new EntityVersionView
                     {
                         Version = versionId++,
                         Hash = version.Key,
                         Data = version.Values[0].Data,
                         Type = version.Values[0].Type,
                         EntityId = version.Values[0].EntityId ?? default,
-                        Observations = version.Values.Select(u => u.Timestamp).ToArray(),
+                        ObservationTimestamps = version.Values.Select(u => u.Timestamp).ToArray(),
                         ObservationSources = version.Values.Select(u => u.SourceId).ToArray()
                     };
                     yield return vers;
                 }
             }
 
-            await foreach (var group in Versioned().GroupByConsecutive(v => v.Observations.Min().InUtc().Date))
+            await foreach (var group in Versioned().GroupByConsecutive(v => v.ObservationTimestamps.Min().InUtc().Date))
             {
                 var filename = $"{outPrefix}{group.Key:R}.json";
                 _logger.Information("Exporting {EntityType} to {OutFile}", type, filename);
@@ -177,13 +177,13 @@ namespace SIBR.Storage.CLI.Export
             _logger.Information("Done exporting {EntityType} (took {Duration})", type, sw.Elapsed);
         }
 
-        private async Task WriteByEntityId(ExportOptions opts, string outDir, IAsyncEnumerable<EntityVersion> versions)
+        private async Task WriteByEntityId(ExportOptions opts, string outDir, IAsyncEnumerable<EntityVersionView> versions)
         {
             await foreach (var version in versions.GroupByConsecutive(v => v.EntityId))
                 await WriteVersionsWithEntityId(opts, version.Values, outDir);
         }
 
-        private async Task WriteVersionsWithEntityId(ExportOptions opts, IReadOnlyCollection<EntityVersion> versions,
+        private async Task WriteVersionsWithEntityId(ExportOptions opts, IReadOnlyCollection<EntityVersionView> versions,
             string outDir)
         {
             var entityId = versions.First().EntityId;
@@ -228,7 +228,7 @@ namespace SIBR.Storage.CLI.Export
                 Data = update.Data
             };
 
-        private FileVersion ToFileVersion(EntityVersion version, bool includeObservations)
+        private FileVersion ToFileVersion(EntityVersionView version, bool includeObservations)
         {
             return new FileVersion
             {
@@ -236,10 +236,10 @@ namespace SIBR.Storage.CLI.Export
                 Hash = version.Hash,
                 Version = version.Version,
                 Data = version.Data,
-                FirstSeen = version.Observations.First(),
-                LastSeen = version.Observations.Last(),
+                FirstSeen = version.ObservationTimestamps.First(),
+                LastSeen = version.ObservationTimestamps.Last(),
                 Observations = includeObservations
-                    ? version.Observations
+                    ? version.ObservationTimestamps
                         .Zip(version.ObservationSources)
                         .Select(pair => new Observation
                         {

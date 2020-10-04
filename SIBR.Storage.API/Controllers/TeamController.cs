@@ -5,14 +5,16 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
-using SIBR.Storage.API.Controllers.Models;
+using SIBR.Storage.API.Models;
 using SIBR.Storage.API.Utils;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
+using SIBR.Storage.Data.Query;
 
 namespace SIBR.Storage.API.Controllers
 {
-    [Route("api/teams"), ApiController]
+    [Route("v{version:apiVersion}"), ApiController]
+    [ApiVersion("1.0")]
     public class TeamController: ControllerBase
     {
         private readonly TeamUpdateStore _store;
@@ -22,44 +24,34 @@ namespace SIBR.Storage.API.Controllers
             _store = store;
         }
         
-        [Route("")]
-        public async Task<IEnumerable<ApiTeam>> GetTeams([FromQuery] TeamUpdateQuery query)
+        [Route("teams")]
+        public async Task<IActionResult> GetTeams()
         {
-            return (await _store.GetTeams()).Select(ToApiTeam);
+            return Ok(new ApiResponse<ApiTeam>()
+            {
+                Data = (await _store.GetTeams()).Select(u => new ApiTeam(u))
+            });
         }
 
-        private ApiTeam ToApiTeam(Team team) =>
-            new ApiTeam
-            {
-                Id = team.TeamId,
-                LastUpdate = team.Timestamp,
-                Data = team.Data
-            };
-
-        [Route("updates")]
-        public IAsyncEnumerable<ApiTeamUpdate> GetTeamUpdates([FromQuery] TeamUpdateQuery query)
+        [Route("teams/updates")]
+        public async Task<IActionResult> GetTeamUpdates([FromQuery] TeamUpdateQuery query)
         {
-            return _store.GetTeamUpdates(new TeamUpdateStore.TeamUpdateQueryOpts
+            var updates = await _store.GetTeamUpdates(new TeamUpdateStore.TeamUpdateQueryOpts
             {
                 Teams = query.Team,
                 After = query.After,
                 Before = query.Before,
                 Count = query.Count ?? 100,
-                Reverse = query.Order == IUpdateQuery.ResultOrder.Desc,
-                PageUpdateId = query.Page
-            }).Select(ToApiTeamUpdate);
-        }
+                Order = query.Order,
+                Page = query.Page
+            }).ToListAsync();
 
-        private ApiTeamUpdate ToApiTeamUpdate(TeamUpdate update) =>
-            new ApiTeamUpdate
+            return Ok(new ApiResponsePaginated<ApiTeamUpdate>
             {
-                UpdateId = update.UpdateId,
-                TeamId = update.TeamId,
-                FirstSeen = update.FirstSeen,
-                LastSeen = update.LastSeen,
-                Hash = update.Hash,
-                Data = update.Data
-            };
+                Data = updates.Select(u => new ApiTeamUpdate(u)),
+                NextPage = updates.LastOrDefault()?.NextPage
+            });
+        }
 
         public class TeamUpdateQuery: IUpdateQuery
         {
@@ -67,8 +59,8 @@ namespace SIBR.Storage.API.Controllers
             public Guid[] Team { get; set; }
             public Instant? Before { get; set; }
             public Instant? After { get; set; }
-            public IUpdateQuery.ResultOrder Order { get; set; }
-            public Guid? Page { get; set; }
+            public SortOrder Order { get; set; }
+            public PageToken Page { get; set; }
             [Range(1, 250)] public int? Count { get; set; }
         }
     }

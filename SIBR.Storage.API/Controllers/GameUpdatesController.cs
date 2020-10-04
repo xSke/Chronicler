@@ -1,17 +1,19 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
-using SIBR.Storage.API.Controllers.Models;
+using SIBR.Storage.API.Models;
 using SIBR.Storage.API.Utils;
 using SIBR.Storage.Data;
-using SIBR.Storage.Data.Models;
+using SIBR.Storage.Data.Query;
 
 namespace SIBR.Storage.API.Controllers
 {
     [ApiController]
-    [Route("api/games/updates")]
+    [ApiVersion("1.0")]
+    [Route("v{version:apiVersion}")]
     public class GameUpdatesController: ControllerBase
     {
         private readonly GameUpdateStore _store;
@@ -21,23 +23,30 @@ namespace SIBR.Storage.API.Controllers
             _store = store;
         }
 
-        [Route("")]
-        public ActionResult<IAsyncEnumerable<GameUpdateView>> GetGameUpdates([FromQuery] GameUpdatesQueryOptions opts)
+        [Route("games/updates")]
+        public async Task<IActionResult> GetGameUpdates([FromQuery] GameUpdatesQueryOptions opts)
         {
             if ((opts.Season != null) != (opts.Day != null))
                 return BadRequest("Must query by both season and day");
 
-            var res = _store.GetGameUpdates(new GameUpdateStore.GameUpdateQueryOptions
+            var updates = await _store.GetGameUpdates(new GameUpdateStore.GameUpdateQueryOptions
             {
                 Season = opts.Season,
                 Day = opts.Day,
                 After = opts.After,
                 Count = opts.Count ?? 100,
                 Game = opts.Game,
+                Order = opts.Order,
+                Page = opts.Page,
                 Search = opts.Search,
                 Started = opts.Started
+            }).ToListAsync();
+            
+            return Ok(new ApiResponsePaginated<ApiGameUpdate>()
+            {
+                 Data = updates.Select(u => new ApiGameUpdate(u)),
+                 NextPage = updates.LastOrDefault()?.NextPage
             });
-            return Ok(res);
         }
         
         public class GameUpdatesQueryOptions: IUpdateQuery
@@ -51,8 +60,8 @@ namespace SIBR.Storage.API.Controllers
             public bool? Started { get; set; }
             public Instant? Before { get; set; }
             public Instant? After { get; set; }
-            public IUpdateQuery.ResultOrder Order { get; set; }
-            public Guid? Page => null;
+            public SortOrder Order { get; set; }
+            public PageToken Page { get; set; }
             [Range(1, 1000)] public int? Count { get; set; }
         }
     }

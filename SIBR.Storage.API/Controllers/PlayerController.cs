@@ -1,18 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
-using SIBR.Storage.API.Controllers.Models;
+using SIBR.Storage.API.Models;
 using SIBR.Storage.API.Utils;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
+using SIBR.Storage.Data.Query;
 
 namespace SIBR.Storage.API.Controllers
 {
     [ApiController]
-    [Route("api/players")]
+    [Route("v{version:apiVersion}")]
+    [ApiVersion("1.0")]
     public class PlayerController : ControllerBase
     {
         private readonly PlayerUpdateStore _playerUpdateStore;
@@ -22,68 +25,51 @@ namespace SIBR.Storage.API.Controllers
             _playerUpdateStore = playerUpdateStore;
         }
         
-        [Route("")]
-        public async Task<ActionResult<List<ApiPlayer>>> GetPlayers()
+        [Route("players")]
+        public async Task<IActionResult> GetPlayers()
         {
             var updates = await _playerUpdateStore.GetAllPlayers();
-            return Ok(updates.Select(ToApiPlayer));
+            return Ok(new ApiResponse<ApiPlayer>
+            {
+                Data = updates.Select(u => new ApiPlayer(u))
+            });
         }
 
-        [Route("updates")]
-        public ActionResult<IAsyncEnumerable<ApiPlayerUpdate>> GetPlayerUpdates([FromQuery] PlayerUpdateQuery query)
+        [Route("players/updates")]
+        public async Task<IActionResult> GetPlayerUpdates([FromQuery] PlayerUpdateQuery query)
         {
-            var updates = _playerUpdateStore.GetPlayerVersions(new PlayerUpdateStore.PlayerUpdateQuery
+            var updates = await _playerUpdateStore.GetPlayerVersions(new PlayerUpdateStore.PlayerUpdateQuery
             {
                 Count = query.Count ?? 100,
                 After = query.After,
                 Before = query.Before,
                 Players = query.Player,
-                Reverse = query.Order == IUpdateQuery.ResultOrder.Desc,
-                PageUpdateId = query.Page
-            });
+                Order = query.Order,
+                Page = query.Page
+            }).ToListAsync();
             
-            return Ok(updates.Select(ToApiPlayerUpdate));
+            return Ok(new ApiResponsePaginated<ApiPlayerUpdate>
+            {
+                Data = updates.Select(u => new ApiPlayerUpdate(u)),
+                NextPage = updates.LastOrDefault()?.NextPage
+            });
         }
 
-        [Route("names")]
+        [Route("players/names")]
         public async Task<Dictionary<string, string>> GetPlayerNames()
         {
             var players = await _playerUpdateStore.GetAllPlayerNames();
             return players.ToDictionary(p => p.PlayerId.ToString(), p => p.Name);
         }
-        
-        private ApiPlayer ToApiPlayer(Player arg)
-        {
-            return new ApiPlayer
-            {
-                Id = arg.PlayerId,
-                LastUpdate = arg.Timestamp,
-                TeamId = arg.TeamId,
-                Position = arg.Position,
-                RosterIndex = arg.RosterIndex,
-                Data = arg.Data
-            };
-        }
-        
-        private ApiPlayerUpdate ToApiPlayerUpdate(PlayerUpdate arg) =>
-            new ApiPlayerUpdate
-            {
-                UpdateId = arg.UpdateId,
-                PlayerId = arg.PlayerId,
-                FirstSeen = arg.FirstSeen,
-                LastSeen = arg.LastSeen,
-                Hash = arg.Hash,
-                Data = arg.Data,
-            };
 
         public class PlayerUpdateQuery: IUpdateQuery {
             [ModelBinder(BinderType = typeof(CommaSeparatedBinder))]
             public Guid[] Player { get; set; }
             public Instant? Before { get; set; }
             public Instant? After { get; set; }
-            public IUpdateQuery.ResultOrder Order { get; set; }
-            public Guid? Page { get; set; }
-            public int? Count { get; set; }
+            public SortOrder Order { get; set; }
+            public PageToken Page { get; set; }
+            [Range(1, 1000)] public int? Count { get; set; }
         }
     }
 }
