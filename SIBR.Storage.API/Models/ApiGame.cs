@@ -16,7 +16,7 @@ namespace SIBR.Storage.API.Models
         {
             GameId = db.GameId;
             StartTime = db.StartTime;
-            EndTime = db.StartTime;
+            EndTime = db.EndTime;
             Data = db.Data;
         }
     }
