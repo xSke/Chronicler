@@ -2,7 +2,6 @@
 using System.Text.Json;
 using NodaTime;
 using SIBR.Storage.Data.Models;
-using SIBR.Storage.Data.Query;
 
 namespace SIBR.Storage.API.Models
 {

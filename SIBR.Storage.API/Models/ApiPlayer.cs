@@ -14,7 +14,7 @@ namespace SIBR.Storage.API.Models
         public Guid? TeamId { get; set; }
         public Instant LastUpdate { get; set; }
 
-        [JsonConverter(typeof(LowercaseStringEnumConverter))]
+        [JsonConverter(typeof(LowercaseStringNullableEnumConverter<PlayerView.TeamPosition?>))]
         public PlayerView.TeamPosition? Position { get; set; }
 
         public int? RosterIndex { get; set; }
