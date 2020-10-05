@@ -17,6 +17,10 @@
         Season = 13,
         League = 15,
         Subleague = 16,
-        Division = 17
+        Division = 17,
+        GameStatsheet = 18,
+        TeamStatsheet = 19,
+        PlayerStatsheet = 20,
+        SeasonStatsheet = 21,
     }
 }

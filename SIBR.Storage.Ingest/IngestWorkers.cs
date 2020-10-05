@@ -24,7 +24,8 @@ namespace SIBR.Storage.Ingest
             new StreamDataWorker(services, sourceId), 
             new TeamPlayerDataWorker(services, sourceId),
             new GameEndpointWorker(services, sourceId),
-            new FutureGamesWorker(services, sourceId)
+            new FutureGamesWorker(services, sourceId),
+            new StatsheetsWorker(services, sourceId), 
         };
     }
 }
