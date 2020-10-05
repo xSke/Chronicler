@@ -31,35 +31,25 @@ namespace SIBR.Storage.Data
             });
         }
 
-        public IAsyncEnumerable<EntityVersionView> ExportAllUpdatesGrouped(UpdateType type)
+        public IAsyncEnumerable<EntityUpdateView> ExportAllUpdatesGrouped(UpdateType type)
         {
             // todo: move to view
-            return _db.QueryStreamAsync<EntityVersionView>(@"
+            return _db.QueryStreamAsync<EntityUpdateView>(@"
 select
     type,
+    timestamp,
+    update_id,
+    source_id,
     entity_id,
-    version,
     hash,
-    (select data from objects o where o.hash = observations.hash),
-    array_agg(observations.timestamp) as observations,
-    array_agg(observations.source_id) as observation_sources
-from (
-    select 
-        *,
-        (sum(version_increment) over (partition by type, entity_id order by timestamp)) - 1 
-            as version
-    from (
-        select
-            *,
-            case 
-                when (lag(hash) over (partition by type, entity_id order by timestamp)) is distinct from hash then 1
-            end as version_increment
-        from updates
-    ) as with_version_increment
-) observations
+    case
+        when (lag(hash) over w) is distinct from hash then 
+            (select data from objects o where o.hash = u.hash limit 1)
+    end as data
+from updates u
 where type = @Type
-group by type, entity_id, version, hash
-order by type, entity_id, version;
+window w as (partition by type, entity_id order by timestamp)
+order by type, entity_id, timestamp
 ", new {Type = type});
         }
 

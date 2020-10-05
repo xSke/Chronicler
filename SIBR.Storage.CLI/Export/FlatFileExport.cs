@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
@@ -44,23 +46,42 @@ namespace SIBR.Storage.CLI.Export
 
             var sw = new Stopwatch();
             sw.Start();
+            
+            var streamExport = ExportAllByDayRaw(opts, UpdateType.Stream, Path.Join(opts.OutDir, "stream", "stream-"));
+            
             await ExportByEntityId(opts, UpdateType.Player, Path.Join(opts.OutDir, "players"));
             await ExportByEntityId(opts, UpdateType.Team, Path.Join(opts.OutDir, "teams"));
+
             await Task.WhenAll(
-                ExportByEntityId(opts, UpdateType.Season, Path.Join(opts.OutDir, "seasons")),
-                ExportByEntityId(opts, UpdateType.League, Path.Join(opts.OutDir, "teams", "leagues")),
-                ExportByEntityId(opts, UpdateType.Subleague, Path.Join(opts.OutDir, "teams", "subleagues")),
-                ExportByEntityId(opts, UpdateType.Division, Path.Join(opts.OutDir, "teams", "divisions")),
-                ExportByEntityId(opts, UpdateType.Standings, Path.Join(opts.OutDir, "teams", "standings")),
-                ExportByEntityId(opts, UpdateType.Tiebreakers, Path.Join(opts.OutDir, "teams", "tiebreakers")),
+                ExportByEntityId(opts, UpdateType.Season, Path.Join(opts.OutDir, "league", "seasons")),
+                ExportByEntityId(opts, UpdateType.League, Path.Join(opts.OutDir, "league", "leagues")),
+                ExportByEntityId(opts, UpdateType.Subleague, Path.Join(opts.OutDir, "league", "subleagues")),
+                ExportByEntityId(opts, UpdateType.Division, Path.Join(opts.OutDir, "league", "divisions")),
+                ExportByEntityId(opts, UpdateType.Standings, Path.Join(opts.OutDir, "league", "standings")),
+                ExportByEntityId(opts, UpdateType.Tiebreakers, Path.Join(opts.OutDir, "league", "tiebreakers"))
+            );
+
+            await Task.WhenAll(
+                ExportByEntityId(opts, UpdateType.SeasonStatsheet, Path.Join(opts.OutDir, "statsheets", "season")),
+                ExportByEntityId(opts, UpdateType.GameStatsheet, Path.Join(opts.OutDir, "statsheets", "game")),
+                ExportByEntityId(opts, UpdateType.TeamStatsheet, Path.Join(opts.OutDir, "statsheets", "team")),
+                ExportByEntityId(opts, UpdateType.PlayerStatsheet, Path.Join(opts.OutDir, "statsheets", "player"))
+            );
+            
+            await Task.WhenAll(
                 ExportAllByDay(opts, UpdateType.Tributes, Path.Join(opts.OutDir, "tributes", "tributes-")),
                 ExportAllByDay(opts, UpdateType.Idols, Path.Join(opts.OutDir, "idols", "idols-")),
+                ExportAllByDay(opts, UpdateType.OffseasonSetup, Path.Join(opts.OutDir, "election", "offseasonsetup-")),
                 ExportAllByDay(opts, UpdateType.GlobalEvents, Path.Join(opts.OutDir, "globalevents", "globalevents-")),
-                ExportAllByDay(opts, UpdateType.Sim, Path.Join(opts.OutDir, "sim", "sim-")),
-                ExportAllByDay(opts, UpdateType.OffseasonSetup, Path.Join(opts.OutDir, "offseasonsetup", "offseasonsetup-")),
-                ExportAll(opts, UpdateType.Temporal, Path.Join(opts.OutDir, "temporal.json"))
+                ExportAll(opts, UpdateType.Sim, Path.Join(opts.OutDir, "sim", "sim.json")),
+                ExportAll(opts, UpdateType.Temporal, Path.Join(opts.OutDir, "sim", "temporal.json"))
             );
-            // await ExportGameUpdates(opts, Path.Join(opts.OutDir, "games"));
+
+            await Task.WhenAll(
+                streamExport,
+                ExportGameUpdates(opts, Path.Join(opts.OutDir, "games"))
+            );
+            
             sw.Stop();
 
             _logger.Information("Finished export (took {Duration} total). Have a nice day~", sw.Elapsed);
@@ -101,7 +122,7 @@ namespace SIBR.Storage.CLI.Export
 
             var sw = new Stopwatch();
             sw.Start();
-            var versions = _updateStore.ExportAllUpdatesGrouped(type);
+            var versions = GroupVersion(_updateStore.ExportAllUpdatesGrouped(type));
             await WriteValues(opts, versions.Select(v => ToFileVersion(v, false)), filename);
             sw.Stop();
 
@@ -113,7 +134,7 @@ namespace SIBR.Storage.CLI.Export
             var sw = new Stopwatch();
             sw.Start();
 
-            var versions = _updateStore.ExportAllUpdatesGrouped(type);
+            var versions =  GroupVersion(_updateStore.ExportAllUpdatesGrouped(type));
             await foreach (var group in versions.GroupByConsecutive(v => v.ObservationTimestamps.Min().InUtc().Date))
             {
                 var filename = $"{outPrefix}{group.Key:R}.json";
@@ -125,38 +146,47 @@ namespace SIBR.Storage.CLI.Export
             _logger.Information("Done exporting {EntityType} (took {Duration})", type, sw.Elapsed);
         }
 
+        private IAsyncEnumerable<EntityVersionView> GroupVersion(IAsyncEnumerable<EntityUpdateView> inputGrouped)
+        {
+            var versionNumbers = new ConcurrentDictionary<(UpdateType, Guid), int>();
+            return inputGrouped
+                .GroupByConsecutive(update => (update.Type, update.EntityId, update.Hash))
+                .Select(versionGroup =>
+                {
+                    return new EntityVersionView
+                    {
+                        Type = versionGroup.Key.Type,
+                        EntityId = versionGroup.Key.EntityId ?? default,
+                        Hash = versionGroup.Key.Hash,
+                        Data = versionGroup.Values[0].Data,
+                        ObservationTimestamps = versionGroup.Values.Select(upd => upd.Timestamp).ToArray(),
+                        ObservationSources = versionGroup.Values.Select(upd => upd.SourceId).ToArray(),
+                        Version = versionNumbers.AddOrUpdate((versionGroup.Key.Type, versionGroup.Key.EntityId ?? default), _ => 1, (_, last) => last + 1)
+                    };
+                });
+        }
+
         private async Task ExportAllByDayRaw(ExportOptions opts, UpdateType type, string outPrefix)
         {
             var sw = new Stopwatch();
             sw.Start();
 
-            var versions = _updateStore.ExportAllUpdatesRaw(type);
-
-            var versionId = 0;
-
-            async IAsyncEnumerable<EntityVersionView> Versioned()
-            {
-                await foreach (var version in versions.GroupByConsecutive(u => u.Hash))
-                {
-                    var vers = new EntityVersionView
-                    {
-                        Version = versionId++,
-                        Hash = version.Key,
-                        Data = version.Values[0].Data,
-                        Type = version.Values[0].Type,
-                        EntityId = version.Values[0].EntityId ?? default,
-                        ObservationTimestamps = version.Values.Select(u => u.Timestamp).ToArray(),
-                        ObservationSources = version.Values.Select(u => u.SourceId).ToArray()
-                    };
-                    yield return vers;
-                }
-            }
-
-            await foreach (var group in Versioned().GroupByConsecutive(v => v.ObservationTimestamps.Min().InUtc().Date))
+            var updates = _updateStore.ExportAllUpdatesRaw(type);
+            await foreach (var group in updates.GroupByConsecutive(v => v.Timestamp.InUtc().Date))
             {
                 var filename = $"{outPrefix}{group.Key:R}.json";
                 _logger.Information("Exporting {EntityType} to {OutFile}", type, filename);
-                await WriteValues(opts, group.ToAsyncEnumerable().Select(v => ToFileVersion(v, false)), filename);
+
+                await WriteValues(opts, group
+                    .ToAsyncEnumerable()
+                    .Select(g => new RawUpdateObject
+                {
+                    Timestamp = g.Timestamp,
+                    SourceId = g.SourceId,
+                    UpdateId = g.UpdateId,
+                    Data = g.Data,
+                    Hash = g.Hash
+                }), filename);
                 _logger.Information("Wrote {EntityType} to {OutFile}", type, filename);
             }
 
@@ -170,7 +200,7 @@ namespace SIBR.Storage.CLI.Export
 
             var sw = new Stopwatch();
             sw.Start();
-            var versions = _updateStore.ExportAllUpdatesGrouped(type);
+            var versions = GroupVersion(_updateStore.ExportAllUpdatesGrouped(type));
             await WriteByEntityId(opts, outDir, versions);
             sw.Stop();
 
@@ -280,6 +310,15 @@ namespace SIBR.Storage.CLI.Export
             public string OutDir;
             public bool Compress;
             public bool IncludeObservations;
+        }
+
+        public class RawUpdateObject
+        {
+            public Instant Timestamp { get; set; }
+            public Guid Hash { get; set; }
+            public JsonElement Data { get; set; }
+            public Guid UpdateId { get; set; }
+            public Guid SourceId { get; set; }
         }
     }
 }
