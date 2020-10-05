@@ -1,6 +1,7 @@
 ﻿drop materialized view if exists players;
 drop materialized view if exists player_versions;
 drop materialized view if exists current_roster;
+drop materialized view if exists roster_versions;
 drop materialized view if exists team_versions;
 drop materialized view if exists teams;
 
@@ -48,17 +49,44 @@ create unique index player_versions_pkey on player_versions (player_id, first_se
 
 create materialized view players as
     select
-        entity_id as player_id,
+        player_ids.player_id,
         update_id,
-        timestamp,
+        first_seen,
         data,
         team_id,
         position,
         roster_index
     from (select distinct entity_id as player_id from updates where type = 1) as player_ids
-        inner join lateral (select * from updates where entity_id = player_ids.player_id order by timestamp desc limit 1) 
-            as updates on true
-        inner join objects using (hash)
         left join current_roster using (player_id)
-    order by timestamp desc;
+        inner join lateral (select * from player_versions where player_id = player_ids.player_id order by first_seen desc limit 1) 
+            as updates on true;
 create unique index players_pkey on players (player_id);
+
+create materialized view roster_versions as
+    select 
+        player_id, team_id, position, roster_index, first_seen, update_id,
+        coalesce(
+            lead(prev_last_seen) over w,
+            (select max(timestamp) from updates u where u.hash = hash)
+        ) as last_seen 
+    from (
+        select 
+            player_id, team_id, position, roster_index, first_seen, last_seen, hash, update_id,
+            
+            lag(team_id) over w as prev_team_id,
+            lag(position) over w as prev_position,
+            lag(roster_index) over w as prev_roster_index,
+            
+            lag(last_seen) over w as prev_last_seen
+        from team_versions, unnest(array ['lineup', 'rotation', 'bullpen', 'bench']) as position
+            inner join lateral (
+                select
+                    value::uuid as player_id,
+                    (ordinality - 1) as roster_index
+                from jsonb_array_elements_text(data -> position) with ordinality
+            ) as players on true
+        window w as (partition by player_id order by first_seen)
+    ) as roster_versions_all
+    where (team_id, position, roster_index) is distinct from (prev_team_id, prev_position, prev_roster_index)
+    window w as (partition by player_id order by first_seen);
+create unique index on roster_versions(player_id, first_seen, update_id);
