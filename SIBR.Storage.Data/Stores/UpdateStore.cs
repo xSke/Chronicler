@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
+using NodaTime;
 using Npgsql;
 using Serilog;
 using SIBR.Storage.Data.Models;
+using SIBR.Storage.Data.Query;
 using SIBR.Storage.Data.Utils;
 
 namespace SIBR.Storage.Data
@@ -104,6 +106,24 @@ order by type, entity_id, timestamp
                     update.Hash
                 });
             }
+        }
+
+        public IAsyncEnumerable<EntityVersionView> GetAllVersions(UpdateType type, string table, EntityVersionQuery query)
+        {
+            var q = new SqlKata.Query(table)
+                .Where("type", type)
+                .ApplyBounds(query, "first_seen")
+                .ApplySorting(query, "first_seen", "update_id");
+            return _db.QueryKataAsync<EntityVersionView>(q);
+        }
+
+        public class EntityVersionQuery: IPaginatedQuery, IBoundedQuery<Instant>
+        {
+            public Instant? Before { get; set; }
+            public Instant? After { get; set; }
+            public int? Count { get; set; }
+            public SortOrder Order { get; set; }
+            public PageToken Page { get; set; }
         }
     }
 }

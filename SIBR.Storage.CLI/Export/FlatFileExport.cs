@@ -146,14 +146,14 @@ namespace SIBR.Storage.CLI.Export
             _logger.Information("Done exporting {EntityType} (took {Duration})", type, sw.Elapsed);
         }
 
-        private IAsyncEnumerable<EntityVersionView> GroupVersion(IAsyncEnumerable<EntityUpdateView> inputGrouped)
+        private IAsyncEnumerable<EntityVersionWithObservationsView> GroupVersion(IAsyncEnumerable<EntityUpdateView> inputGrouped)
         {
             var versionNumbers = new ConcurrentDictionary<(UpdateType, Guid), int>();
             return inputGrouped
                 .GroupByConsecutive(update => (update.Type, update.EntityId, update.Hash))
                 .Select(versionGroup =>
                 {
-                    return new EntityVersionView
+                    return new EntityVersionWithObservationsView
                     {
                         Type = versionGroup.Key.Type,
                         EntityId = versionGroup.Key.EntityId ?? default,
@@ -207,13 +207,13 @@ namespace SIBR.Storage.CLI.Export
             _logger.Information("Done exporting {EntityType} (took {Duration})", type, sw.Elapsed);
         }
 
-        private async Task WriteByEntityId(ExportOptions opts, string outDir, IAsyncEnumerable<EntityVersionView> versions)
+        private async Task WriteByEntityId(ExportOptions opts, string outDir, IAsyncEnumerable<EntityVersionWithObservationsView> versions)
         {
             await foreach (var version in versions.GroupByConsecutive(v => v.EntityId))
                 await WriteVersionsWithEntityId(opts, version.Values, outDir);
         }
 
-        private async Task WriteVersionsWithEntityId(ExportOptions opts, IReadOnlyCollection<EntityVersionView> versions,
+        private async Task WriteVersionsWithEntityId(ExportOptions opts, IReadOnlyCollection<EntityVersionWithObservationsView> versions,
             string outDir)
         {
             var entityId = versions.First().EntityId;
@@ -258,7 +258,7 @@ namespace SIBR.Storage.CLI.Export
                 Data = update.Data
             };
 
-        private FileVersion ToFileVersion(EntityVersionView version, bool includeObservations)
+        private FileVersion ToFileVersion(EntityVersionWithObservationsView version, bool includeObservations)
         {
             return new FileVersion
             {

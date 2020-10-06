@@ -43,6 +43,7 @@ namespace SIBR.Storage.Data.Utils
             {
                 return updates.SelectMany(item =>
                     root.SelectTokens(item.path)
+                        .Where(token => token.First != null)
                         .Select(token => EntityUpdate.From(item.type, sourceId, timestamp, token)));
             }
 
