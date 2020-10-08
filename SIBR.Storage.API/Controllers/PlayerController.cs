@@ -26,9 +26,16 @@ namespace SIBR.Storage.API.Controllers
         }
         
         [Route("players")]
-        public async Task<IActionResult> GetPlayers()
+        public async Task<IActionResult> GetPlayers([FromQuery] PlayerQuery query)
         {
             var updates = await _playerUpdateStore.GetAllPlayers();
+
+            if (query.Forbidden != null)
+                updates = updates.Where(p => p.IsForbidden == query.Forbidden.Value);
+
+            if (query.Incinerated != null)
+                updates = updates.Where(p => p.Data.GetProperty("deceased").GetBoolean() == query.Incinerated.Value);
+
             return Ok(new ApiResponse<ApiPlayer>
             {
                 Data = updates.Select(u => new ApiPlayer(u))
@@ -70,6 +77,12 @@ namespace SIBR.Storage.API.Controllers
             public SortOrder Order { get; set; }
             public PageToken Page { get; set; }
             [Range(1, 1000)] public int? Count { get; set; }
+        }
+
+        public class PlayerQuery
+        {
+            public bool? Forbidden { get; set; }
+            public bool? Incinerated { get; set; }
         }
     }
 }

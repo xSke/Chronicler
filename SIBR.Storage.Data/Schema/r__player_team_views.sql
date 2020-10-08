@@ -1,4 +1,5 @@
-﻿drop materialized view if exists players;
+﻿drop view if exists players_view;
+drop materialized view if exists players;
 drop materialized view if exists player_versions;
 drop materialized view if exists current_roster;
 drop materialized view if exists roster_versions;
@@ -49,17 +50,8 @@ create unique index player_versions_pkey on player_versions (player_id, first_se
 
 create materialized view players as
     select
-        player_ids.player_id,
-        update_id,
-        first_seen,
-        data,
-        team_id,
-        position,
-        roster_index
-    from (select distinct entity_id as player_id from updates where type = 1) as player_ids
-        left join current_roster using (player_id)
-        inner join lateral (select * from player_versions where player_id = player_ids.player_id order by first_seen desc limit 1) 
-            as updates on true;
+        player_ids.player_id
+    from (select distinct entity_id as player_id from updates where type = 1) as player_ids;
 create unique index players_pkey on players (player_id);
 
 create materialized view roster_versions as
@@ -90,3 +82,23 @@ create materialized view roster_versions as
     where (team_id, position, roster_index) is distinct from (prev_team_id, prev_position, prev_roster_index)
     window w as (partition by player_id order by first_seen);
 create unique index on roster_versions(player_id, first_seen, update_id);
+
+create view players_view as
+    select
+        p.player_id,
+        latest_version.update_id,
+        latest_version.first_seen as timestamp,
+        data,
+        case when not (data->>'deceased')::bool then team_id end as team_id,
+        case when not (data->>'deceased')::bool then position end as position,
+        case when not (data->>'deceased')::bool then roster_index end as roster_index,
+        (not (data->>'deceased')::bool and not exists(
+            select 1 from roster_versions rv where rv.player_id = p.player_id and (rv.position = 'lineup' or rv.position = 'rotation') 
+        )) as is_forbidden
+    from players p
+        left join lateral (
+            select team_id, position, roster_index from roster_versions rv where rv.player_id = p.player_id order by first_seen desc limit 1
+        ) as current_roster on true
+        inner join lateral (
+            select update_id, first_seen, data from player_versions pv where pv.player_id = p.player_id order by first_seen desc limit 1
+        ) as latest_version on true;

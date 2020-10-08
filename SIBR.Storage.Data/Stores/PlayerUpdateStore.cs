@@ -25,12 +25,12 @@ namespace SIBR.Storage.Data
         public async Task<IEnumerable<PlayerView>> GetAllPlayers()
         {
             await using var conn = await _db.Obtain();
-            return await conn.QueryAsync<PlayerView>("select * from players");
+            return await conn.QueryAsync<PlayerView>("select * from players_view");
         }
         public async Task<IEnumerable<PlayerName>> GetAllPlayerNames()
         {
             await using var conn = await _db.Obtain();
-            return await conn.QueryAsync<PlayerName>("select player_id, (data->>'name') as name from players");
+            return await conn.QueryAsync<PlayerName>("select player_id, (data->>'name') as name from players_view");
         }
 
         public IAsyncEnumerable<PlayerUpdateView> GetPlayerVersions(PlayerUpdateQuery opts)

@@ -14,6 +14,7 @@ namespace SIBR.Storage.Data.Models
         public Guid? TeamId { get; set; }
         public TeamPosition? Position { get; set; }
         public int? RosterIndex { get; set; }
+        public bool IsForbidden { get; set; }
 
         public enum TeamPosition
         {

@@ -20,7 +20,8 @@ namespace SIBR.Storage.API.Models
         public int? RosterIndex { get; set; }
         
         public JsonElement Data { get; set; }
-        public PlayerStars Stars { get; }
+        public bool Forbidden { get; set; }
+        [JsonIgnore] public PlayerStars Stars { get; }
         
         public ApiPlayer(PlayerView db)
         {
@@ -31,6 +32,7 @@ namespace SIBR.Storage.API.Models
             RosterIndex = db.RosterIndex;
             Data = db.Data;
             Stars = ((IPlayerData) db).Stars;
+            Forbidden = db.IsForbidden;
         }
     }
 }
