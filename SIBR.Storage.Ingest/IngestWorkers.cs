@@ -15,11 +15,11 @@ namespace SIBR.Storage.Ingest
                 (UpdateType.Tributes, "https://www.blaseball.com/api/getTribute"),
                 (UpdateType.GlobalEvents, "https://www.blaseball.com/database/globalEvents"),
                 (UpdateType.Sim, "https://www.blaseball.com/database/simulationData"),
-            }, new []{"idols_versions", "tributes_by_player", "tributes_hourly"}) { Offset = TimeSpan.FromSeconds(1) },
+            }, new []{"idols_versions", "simdata_versions", "globalevents_versions", "temporal_versions"}) { Offset = TimeSpan.FromSeconds(1) },
             new MiscEndpointWorker(services, Duration.FromMinutes(10),  sourceId, new[]
             {
                 (UpdateType.OffseasonSetup, "https://www.blaseball.com/database/offseasonSetup"),
-            }), 
+            }, new [] { "tributes_by_player", "tributes_hourly" }), // these matviews are slow so don't update them as often... 
             new SiteUpdateWorker(services, sourceId),
             new StreamDataWorker(services, sourceId), 
             new TeamPlayerDataWorker(services, sourceId),
