@@ -33,8 +33,8 @@ namespace SIBR.Storage.Ingest
             _client = services.GetRequiredService<HttpClient>();
             _updateStore = services.GetRequiredService<UpdateStore>();
             _gameStore = services.GetRequiredService<GameStore>();
-            Interval = TimeSpan.FromSeconds(2);
-            Offset = TimeSpan.FromSeconds(1);
+            Interval = TimeSpan.FromSeconds(1);
+            Offset = TimeSpan.FromSeconds(0.5);
         }
 
         protected override async Task RunInterval()
