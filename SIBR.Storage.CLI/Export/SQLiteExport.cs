@@ -32,7 +32,7 @@ namespace SIBR.Storage.CLI.Export
         public async Task Run(Program.ExportDbCmd exportDbCmd)
         {
             var opts = new SQLiteConnectionString(
-                "chron.db",
+                exportDbCmd.File,
                 storeDateTimeAsTicks: false,
                 storeTimeSpanAsTicks: false,
                 openFlags: SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.SharedCache | SQLiteOpenFlags.Create);
