@@ -27,12 +27,14 @@ namespace SIBR.Storage.Data
             _objectStore = objectStore;
         }
 
-        public IAsyncEnumerable<GameUpdateView> GetGameUpdates(GameUpdateQueryOptions opts)
+        public IAsyncEnumerable<GameUpdateView> GetGameUpdates(GameUpdateQueryOptions opts, bool ignoreSort = false)
         {
             var q = new SqlKata.Query("game_updates_unique")
                 .Select("game_id", "timestamp", "hash", "data")
-                .ApplyBounds(opts, "timestamp")
-                .ApplySorting(opts, "timestamp", "hash");
+                .ApplyBounds(opts, "timestamp");
+                
+            if (!ignoreSort)
+                q.ApplySorting(opts, "timestamp", "hash");
 
             if (opts.Season != null) q.Where("season", opts.Season.Value);
             if (opts.Day != null) q.Where("day", opts.Day.Value);

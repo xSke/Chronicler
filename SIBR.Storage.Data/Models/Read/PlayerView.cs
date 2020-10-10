@@ -10,6 +10,8 @@ namespace SIBR.Storage.Data.Models
         public Guid UpdateId { get; set; }
         public Guid PlayerId { get; set; }
         public Instant Timestamp { get; set; }
+        public Instant FirstSeen { get; set; }
+        public Instant LastSeen { get; set; }
         public JsonElement Data { get; set; }
         public Guid? TeamId { get; set; }
         public TeamPosition? Position { get; set; }

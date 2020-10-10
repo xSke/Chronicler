@@ -88,6 +88,8 @@ create view players_view as
         p.player_id,
         latest_version.update_id,
         latest_version.first_seen as timestamp,
+        (select min(first_seen) from player_versions pv where pv.player_id = p.player_id) as first_seen,
+        (select max(last_seen) from player_versions pv where pv.player_id = p.player_id) as last_seen,
         data,
         case when not (data->>'deceased')::bool then team_id end as team_id,
         case when not (data->>'deceased')::bool then position end as position,

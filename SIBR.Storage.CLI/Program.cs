@@ -10,7 +10,7 @@ using SIBR.Storage.Ingest;
 
 namespace SIBR.Storage.CLI
 {
-    class Program
+    public class Program
     {
         [Verb("import")]
         public class ImportCmd
@@ -42,6 +42,13 @@ namespace SIBR.Storage.CLI
 
             [Option("compress")] public bool Compress { get; set; }
         }
+        
+        [Verb("exportdb", HelpText = "Export data to SQLite")]
+        public class ExportDbCmd
+        {
+            [Value(0, MetaName = "file", HelpText = "Output file")]
+            public string File { get; set; }
+        }
 
         [Verb("replay")]
         public class ReplayCmd
@@ -59,10 +66,11 @@ namespace SIBR.Storage.CLI
                 .AddSingleton<IdolLogsImporter>()
                 .AddSingleton<FlatFileExport>()
                 .AddSingleton<StreamReplay>()
+                .AddSingleton<SQLiteExport>()
                 .BuildServiceProvider();
 
             var result = Parser.Default
-                .ParseArguments<ImportCmd, MigrationsCmd, IngestCmd, ExportCmd, ReplayCmd>(args);
+                .ParseArguments<ImportCmd, MigrationsCmd, IngestCmd, ExportCmd, ExportDbCmd, ReplayCmd>(args);
 
             if (result.TypeInfo.Current != typeof(MigrationsCmd))
                 // Init sets up NodaTime in a way that breaks Evolve, so don't do it if we're migrating
@@ -73,20 +81,26 @@ namespace SIBR.Storage.CLI
             await result.WithParsedAsync<IngestCmd>(opts => HandleIngest(services, opts));
             await result.WithParsedAsync<ReplayCmd>(opts => HandleReplay(services, opts));
             await result.WithParsedAsync<ExportCmd>(opts => HandleExport(services, opts));
+            await result.WithParsedAsync<ExportDbCmd>(opts => HandleExportDb(services, opts));
         }
 
-        private static Task HandleMigrations(ServiceProvider services, MigrationsCmd _)
+        private static Task HandleExportDb(IServiceProvider services, ExportDbCmd opts)
+        {
+            return services.GetRequiredService<SQLiteExport>().Run(opts);
+        }
+
+        private static Task HandleMigrations(IServiceProvider services, MigrationsCmd _)
         {
             return services.GetRequiredService<Database>().RunMigrations();
         }
 
-        private static async Task HandleIngest(ServiceProvider services, IngestCmd opts)
+        private static async Task HandleIngest(IServiceProvider services, IngestCmd opts)
         {
             await Task.WhenAll(IngestWorkers.CreateWorkers(services, opts.SourceId)
                 .Select(w => w.Start()));
         }
 
-        private static async Task HandleExport(ServiceProvider services, ExportCmd opts)
+        private static async Task HandleExport(IServiceProvider services, ExportCmd opts)
         {
             await services.GetRequiredService<FlatFileExport>().Run(new FlatFileExport.ExportOptions
             {
@@ -95,12 +109,12 @@ namespace SIBR.Storage.CLI
             });
         }
 
-        private static async Task HandleReplay(ServiceProvider services, ReplayCmd _)
+        private static async Task HandleReplay(IServiceProvider services, ReplayCmd _)
         {
             await services.GetRequiredService<StreamReplay>().Run();
         }
 
-        private static async Task HandleImport(ServiceProvider services, ImportCmd opts)
+        private static async Task HandleImport(IServiceProvider services, ImportCmd opts)
         {
             S3FileImporter importer = opts.Type switch
             {
