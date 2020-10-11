@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data;
 using System.Diagnostics;
+using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Dapper;
@@ -64,17 +65,20 @@ namespace SIBR.Storage.Data
             }
         }
         
-        public async Task RunMigrations()
+        public async Task RunMigrations(bool repair)
         {
             await using var connection = await Obtain();
             var evolve = new Evolve.Evolve(connection, msg => _logger.Information("Evolve: {Message}", msg))
             {
-                EmbeddedResourceAssemblies = new[] {typeof(Database).Assembly},
+                Locations = new[] {Path.Join(Path.GetDirectoryName(typeof(Database).Assembly.Location), "Schema")}, 
                 IsEraseDisabled = true,
                 SqlMigrationPrefix = "v",
                 SqlRepeatableMigrationPrefix = "r",
                 CommandTimeout = 9999999 // some of these are really long!
             };
+            
+            if (repair)
+                evolve.Repair();
 
             // Evolve isn't async >.>
             await Task.Run(() => evolve.Migrate());
@@ -125,7 +129,8 @@ namespace SIBR.Storage.Data
             public override void SetValue(IDbDataParameter parameter, T value)
             {
                 parameter.Value = value;
-                ((NpgsqlParameter) parameter).NpgsqlDbType = _type;
+                if (parameter is NpgsqlParameter p)
+                    p.NpgsqlDbType = _type;
             }
 
             public override T Parse(object value) => (T) value;

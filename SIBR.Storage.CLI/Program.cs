@@ -26,6 +26,8 @@ namespace SIBR.Storage.CLI
         [Verb("migrations")]
         public class MigrationsCmd
         {
+            [Option("repair")]
+            public bool Repair { get; set; }
         }
 
         [Verb("ingest")]
@@ -89,9 +91,9 @@ namespace SIBR.Storage.CLI
             return services.GetRequiredService<SQLiteExport>().Run(opts);
         }
 
-        private static Task HandleMigrations(IServiceProvider services, MigrationsCmd _)
+        private static Task HandleMigrations(IServiceProvider services, MigrationsCmd opts)
         {
-            return services.GetRequiredService<Database>().RunMigrations();
+            return services.GetRequiredService<Database>().RunMigrations(opts.Repair);
         }
 
         private static async Task HandleIngest(IServiceProvider services, IngestCmd opts)
