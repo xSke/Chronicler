@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Text.Json;
 using NodaTime;
+using SIBR.Storage.Data.Query;
 
 namespace SIBR.Storage.Data.Models
 {
-    public class EntityUpdateView: IJsonData
+    public class EntityUpdateView: IJsonData, IPaginatedView
     {
         public Guid UpdateId { get; set; }
         public UpdateType Type { get; set; }
@@ -13,5 +14,7 @@ namespace SIBR.Storage.Data.Models
         public Guid? EntityId { get; set; }
         public Guid Hash { get; set; }
         public JsonElement Data { get; set; }
+        
+        public PageToken NextPage => new PageToken(Timestamp, UpdateId);
     }
 }

@@ -35,16 +35,18 @@ namespace SIBR.Storage.Data.Utils
             }
         }
 
-        public static ExtractOutput ExtractUpdatesFromStreamRoot(Guid sourceId, Instant timestamp, JObject root, SibrHasher hasher)
+        public static ExtractOutput ExtractUpdatesFromStreamRoot(Guid sourceId, Instant timestamp, JObject root, SibrHasher hasher, UpdateType? typeFilter = null)
         {
             var output = new ExtractOutput();
 
             IEnumerable<EntityUpdate> GetUpdates(params (UpdateType type, string path)[] updates)
             {
-                return updates.SelectMany(item =>
-                    root.SelectTokens(item.path)
-                        .Where(token => token.First != null)
-                        .Select(token => EntityUpdate.From(item.type, sourceId, timestamp, token)));
+                return updates
+                    .Where(u => typeFilter == null || u.type == typeFilter.Value)
+                    .SelectMany(item =>
+                        root.SelectTokens(item.path)
+                            .Where(token => token.First != null)
+                            .Select(token => EntityUpdate.From(item.type, sourceId, timestamp, token)));
             }
 
             output.EntityUpdates.AddRange(GetUpdates(
@@ -56,7 +58,8 @@ namespace SIBR.Storage.Data.Utils
                 (UpdateType.Subleague, "value.leagues.subleagues[*]"),
                 (UpdateType.Division, "value.leagues.divisions[*]"),
                 (UpdateType.Tiebreakers, "value.leagues.tiebreakers[*]"),
-                (UpdateType.Temporal, "value.temporal")
+                (UpdateType.Temporal, "value.temporal"),
+                (UpdateType.Bossfight, "value.fights.bossFights[*]")
             ));
 
             if (root["value"]?["games"]?["schedule"] is JArray schedule)

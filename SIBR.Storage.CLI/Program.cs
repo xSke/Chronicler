@@ -3,9 +3,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommandLine;
 using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
 using SIBR.Storage.CLI.Export;
 using SIBR.Storage.CLI.Import;
 using SIBR.Storage.Data;
+using SIBR.Storage.Data.Models;
 using SIBR.Storage.Ingest;
 
 namespace SIBR.Storage.CLI
@@ -55,6 +57,11 @@ namespace SIBR.Storage.CLI
         [Verb("replay")]
         public class ReplayCmd
         {
+            [Option("type")]
+            public UpdateType? Type { get; set; }
+            
+            [Option("after")]
+            public DateTimeOffset? After { get; set; }
         }
 
         static async Task Main(string[] args)
@@ -111,9 +118,13 @@ namespace SIBR.Storage.CLI
             });
         }
 
-        private static async Task HandleReplay(IServiceProvider services, ReplayCmd _)
+        private static async Task HandleReplay(IServiceProvider services, ReplayCmd opts)
         {
-            await services.GetRequiredService<StreamReplay>().Run();
+            await services.GetRequiredService<StreamReplay>().Run(new StreamReplay.ReplayOptions
+            {
+                Type = opts.Type,
+                After = opts.After != null ? Instant.FromDateTimeOffset(opts.After.Value) : (Instant?) null
+            });
         }
 
         private static async Task HandleImport(IServiceProvider services, ImportCmd opts)

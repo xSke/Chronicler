@@ -25,12 +25,18 @@ namespace SIBR.Storage.Data
             _db = db;
         }
 
-        public IAsyncEnumerable<EntityUpdateView> ExportAllUpdatesRaw(UpdateType type)
+        public IAsyncEnumerable<EntityUpdateView> ExportAllUpdatesRaw(UpdateType type, EntityVersionQuery opts)
         {
-            return _db.QueryStreamAsync<EntityUpdateView>("select * from updates inner join objects using (hash) where type = @Type order by timestamp", new
-            {
-                Type = type
-            });
+            var q = new SqlKata.Query("updates")
+                .ApplyBounds(opts, "timestamp")
+                .ApplySorting(opts, "timestamp", "update_id")
+                .Join("objects", "objects.hash", "updates.hash")
+                .Where("type", type);
+
+            if (opts.Ids != null)
+                q.WhereIn("entity_id", opts.Ids);
+
+            return _db.QueryKataAsync<EntityUpdateView>(q);
         }
 
         public IAsyncEnumerable<EntityUpdateView> ExportAllUpdatesGrouped(UpdateType type)
@@ -55,13 +61,17 @@ order by type, entity_id, timestamp
 ", new {Type = type});
         }
 
-        public async Task<EntityUpdate> GetLastUpdate(NpgsqlConnection conn, UpdateType type, Guid? entityId = null)
+        public async Task<EntityUpdate> GetLatestUpdate(NpgsqlConnection conn, UpdateType type, Guid? entityId = null)
         {
             var query = entityId != null
-                ? "select * from updates inner join objects using (hash) where type = @Type and entity_id = @EntityId order by timestamp desc limit 1"
-                : "select * from updates inner join objects using (hash) where type = @Type order by timestamp desc limit 1";
+                ? "select * from latest_view where type = @Type and entity_id = @EntityId limit 1"
+                : "select * from latest_view where type = @Type limit 1";
             return await conn.QuerySingleOrDefaultAsync<EntityUpdate>(query, new {Type = type, EntityId = entityId});
         }
+
+        public IAsyncEnumerable<EntityUpdateView> GetLatestUpdatesFor(UpdateType type) =>
+            _db.QueryStreamAsync<EntityUpdateView>("select * from latest_view where type = @Type",
+                new {Type = type});
 
         public Task SaveUpdate(NpgsqlConnection conn, EntityUpdate update) =>
             SaveUpdates(conn, new[] {update});
@@ -114,11 +124,16 @@ order by type, entity_id, timestamp
                 .Where("type", type)
                 .ApplyBounds(query, "first_seen")
                 .ApplySorting(query, "first_seen", "update_id");
+
+            if (query.Ids != null)
+                q.WhereIn("entity_id", query.Ids);
+            
             return _db.QueryKataAsync<EntityVersionView>(q);
         }
 
         public class EntityVersionQuery: IPaginatedQuery, IBoundedQuery<Instant>
         {
+            public Guid[] Ids { get; set; }
             public Instant? Before { get; set; }
             public Instant? After { get; set; }
             public int? Count { get; set; }

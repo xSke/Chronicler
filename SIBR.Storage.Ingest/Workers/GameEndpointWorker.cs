@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using NodaTime;
-using Npgsql;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
 using SIBR.Storage.Data.Utils;
@@ -41,7 +40,7 @@ namespace SIBR.Storage.Ingest
         {
             EntityUpdate sim;
             await using (var conn = await _db.Obtain())
-               sim = await _updateStore.GetLastUpdate(conn, UpdateType.Sim);
+               sim = await _updateStore.GetLatestUpdate(conn, UpdateType.Sim);
             
             await FetchGamesInner(sim.Data.Value<int>("season"), sim.Data.Value<int>("day"));
         }

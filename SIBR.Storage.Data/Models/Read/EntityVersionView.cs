@@ -13,6 +13,7 @@ namespace SIBR.Storage.Data.Models
         public Guid EntityId { get; set; }
         public Instant FirstSeen { get; set; }
         public Instant LastSeen { get; set; }
+        public Guid Hash { get; set; }
         public JsonElement Data { get; set; }
         
         public PageToken NextPage => new PageToken(FirstSeen, UpdateId);

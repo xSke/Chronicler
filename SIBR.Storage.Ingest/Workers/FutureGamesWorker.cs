@@ -38,7 +38,7 @@ namespace SIBR.Storage.Ingest
         protected override async Task RunInterval()
         {
             await using var conn = await _db.Obtain();
-            var sim = await _updateStore.GetLastUpdate(conn, UpdateType.Sim);
+            var sim = await _updateStore.GetLatestUpdate(conn, UpdateType.Sim);
             var (season, dayStart) = (sim.Data.Value<int>("season"), sim.Data.Value<int>("day"));
 
             var updates = new List<GameUpdate>();

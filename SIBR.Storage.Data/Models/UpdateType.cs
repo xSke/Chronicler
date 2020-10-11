@@ -22,5 +22,6 @@
         TeamStatsheet = 19,
         PlayerStatsheet = 20,
         SeasonStatsheet = 21,
+        Bossfight = 22
     }
 }

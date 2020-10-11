@@ -15,13 +15,9 @@ create unique index team_versions_pkey on team_versions (team_id, first_seen);
 
 create materialized view teams as
     select
-        team_id, update_id, timestamp, data
-    from (select distinct entity_id as team_id from updates where type = 2) as team_ids
-        inner join lateral (select * from updates where entity_id = team_ids.team_id order by timestamp desc limit 1) 
-            as updates on true
-        inner join objects using (hash)
-    where type = 2
-    order by entity_id, timestamp desc;
+        entity_id as team_id, update_id, timestamp, data
+    from latest_view
+    where type = 2;
 create unique index teams_pkey on teams (team_id);
 
 create materialized view current_roster as
@@ -38,20 +34,22 @@ create unique index on current_roster (player_id);
 
 create materialized view player_versions as
     select
-        entity_id as player_id,
-        update_id,
-        first_seen,
-        last_seen,
-        hash,
-        data
-    from versions_view
-    where type = 1; -- Player = 1
+        e.entity_id as player_id,
+        v.update_id,
+        v.first_seen,
+        v.last_seen,
+        v.hash,
+        v.data
+    from entities e
+        inner join versions_view v using (type, entity_id)
+        where type = 1;
 create unique index player_versions_pkey on player_versions (player_id, first_seen);
 
 create materialized view players as
     select
-        player_ids.player_id
-    from (select distinct entity_id as player_id from updates where type = 1) as player_ids;
+        entity_id as player_id
+    from entities
+    where type = 1;
 create unique index players_pkey on players (player_id);
 
 create materialized view roster_versions as
@@ -85,22 +83,20 @@ create unique index on roster_versions(player_id, first_seen, update_id);
 
 create view players_view as
     select
-        p.player_id,
-        latest_version.update_id,
-        latest_version.first_seen as timestamp,
-        (select min(first_seen) from player_versions pv where pv.player_id = p.player_id) as first_seen,
-        (select max(last_seen) from player_versions pv where pv.player_id = p.player_id) as last_seen,
+        l.entity_id as player_id,
+        l.update_id,
+        l as timestamp,
+        (select min(first_seen) from player_versions pv where pv.player_id = l.entity_id) as first_seen,
+        (select max(last_seen) from player_versions pv where pv.player_id = l.entity_id) as last_seen,
         data,
         case when not (data->>'deceased')::bool then team_id end as team_id,
         case when not (data->>'deceased')::bool then position end as position,
         case when not (data->>'deceased')::bool then roster_index end as roster_index,
         (not (data->>'deceased')::bool and not exists(
-            select 1 from roster_versions rv where rv.player_id = p.player_id and (rv.position = 'lineup' or rv.position = 'rotation') 
+            select 1 from roster_versions rv where rv.player_id = l.entity_id and (rv.position = 'lineup' or rv.position = 'rotation') 
         )) as is_forbidden
-    from players p
+    from latest_view l
         left join lateral (
-            select team_id, position, roster_index from roster_versions rv where rv.player_id = p.player_id order by first_seen desc limit 1
+            select team_id, position, roster_index from roster_versions rv where rv.player_id = l.entity_id order by first_seen desc limit 1
         ) as current_roster on true
-        inner join lateral (
-            select update_id, first_seen, data from player_versions pv where pv.player_id = p.player_id order by first_seen desc limit 1
-        ) as latest_version on true;
+        where l.type = 1;
