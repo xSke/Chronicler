@@ -85,7 +85,7 @@ create view players_view as
     select
         l.entity_id as player_id,
         l.update_id,
-        l as timestamp,
+        l.timestamp as timestamp,
         (select min(first_seen) from player_versions pv where pv.player_id = l.entity_id) as first_seen,
         (select max(last_seen) from player_versions pv where pv.player_id = l.entity_id) as last_seen,
         data,
