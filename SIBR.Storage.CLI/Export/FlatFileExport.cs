@@ -171,7 +171,7 @@ namespace SIBR.Storage.CLI.Export
             var sw = new Stopwatch();
             sw.Start();
 
-            var updates = _updateStore.ExportAllUpdatesRaw(type);
+            var updates = _updateStore.ExportAllUpdatesRaw(type, new UpdateStore.EntityVersionQuery());
             await foreach (var group in updates.GroupByConsecutive(v => v.Timestamp.InUtc().Date))
             {
                 var filename = $"{outPrefix}{group.Key:R}.json";
