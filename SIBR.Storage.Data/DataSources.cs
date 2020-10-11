@@ -15,5 +15,6 @@ namespace SIBR.Storage.Data
         public static readonly Guid SiteUpdatesInternetArchive = new Guid("62b33934-5ff2-4c6f-91a4-1222e2f18025");
         public static readonly Guid SiteUpdatesRiskyDrive = new Guid("04c6319c-2345-419d-8ccf-72f27d45da09");
         public static readonly Guid SiteUpdatesUserProvided = new Guid("17a696d3-beb3-4bd5-b918-e9018aca6d83");
+        public static readonly Guid SiteUpdatesSibrServer = new Guid("dbf83096-a8c3-4b9e-960e-22d08ef86f23");
     }
 }
