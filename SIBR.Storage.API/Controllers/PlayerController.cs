@@ -1,14 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using CsvHelper;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
 using SIBR.Storage.API.Models;
 using SIBR.Storage.API.Utils;
 using SIBR.Storage.Data;
-using SIBR.Storage.Data.Models;
 using SIBR.Storage.Data.Query;
 
 namespace SIBR.Storage.API.Controllers
@@ -35,6 +37,18 @@ namespace SIBR.Storage.API.Controllers
 
             if (query.Incinerated != null)
                 updates = updates.Where(p => p.Data.GetProperty("deceased").GetBoolean() == query.Incinerated.Value);
+
+            if (query.Format == ResponseFormat.Csv)
+            {
+                await using var sw = new StringWriter();
+                await using (var w = new CsvWriter(sw, CultureInfo.InvariantCulture))
+                {
+                    w.Configuration.TypeConverterCache.AddConverter<bool>(new LowercaseBooleanConverter());
+                    await w.WriteRecordsAsync(updates.Select(x => new CsvPlayer(x)));
+                }
+
+                return Ok(sw.ToString());
+            }
 
             return Ok(new ApiResponse<ApiPlayer>
             {
@@ -83,6 +97,7 @@ namespace SIBR.Storage.API.Controllers
         {
             public bool? Forbidden { get; set; }
             public bool? Incinerated { get; set; }
+            public ResponseFormat Format { get; set; } = ResponseFormat.Json;
         }
     }
 }

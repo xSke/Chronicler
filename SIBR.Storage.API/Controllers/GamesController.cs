@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using CsvHelper;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
 using SIBR.Storage.API.Models;
@@ -41,10 +44,25 @@ namespace SIBR.Storage.API.Controllers
                 Weather = opts.Weather
             }).ToListAsync();
 
-            return Ok(new ApiResponse<ApiGame>
+            if (opts.Format == ResponseFormat.Json)
             {
-                Data = games.Select(g => new ApiGame(g))
-            });
+                return Ok(new ApiResponse<ApiGame>
+                {
+                    Data = games.Select(g => new ApiGame(g))
+                });
+            }
+            else
+            {
+                await using var sw = new StringWriter();
+                await using (var w = new CsvWriter(sw, CultureInfo.InvariantCulture))
+                {
+                    w.Configuration.TypeConverterOptionsCache.GetOptions<DateTimeOffset?>().Formats = new [] { "yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'" };
+                    w.Configuration.TypeConverterCache.AddConverter<bool>(new LowercaseBooleanConverter());
+                    await w.WriteRecordsAsync(games.Select(x => new CsvGame(x)));
+                }
+
+                return Ok(sw.ToString());
+            }
         }
 
         public class GameQueryOptions : IUpdateQuery
@@ -69,6 +87,7 @@ namespace SIBR.Storage.API.Controllers
             public SortOrder Order { get; set; }
             public PageToken Page => null;
             public int? Count { get; set; }
+            public ResponseFormat Format { get; set; }
         }
     }
 }
