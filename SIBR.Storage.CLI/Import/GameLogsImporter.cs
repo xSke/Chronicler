@@ -79,10 +79,13 @@ namespace SIBR.Storage.CLI
                 
                 sw.Stop();
 
-                var currentTime = streamUpdates.Min(su => su.Timestamp);
-                _logger.Information(
-                    "- @ {CurrentTime}: Imported {StreamUpdates} stream updates, {GameUpdates} game updates, {MiscUpdates} misc updates (in {Duration})",
-                    currentTime, streamRes, gameUpdates.Count, miscRes, sw.Elapsed);
+                if (streamUpdates.Count > 0)
+                {
+                    var currentTime = streamUpdates.Min(su => su.Timestamp);
+                    _logger.Information(
+                        "- @ {CurrentTime}: Imported {StreamUpdates} stream updates, {GameUpdates} game updates, {MiscUpdates} misc updates (in {Duration})",
+                        currentTime, streamRes, gameUpdates.Count, miscRes, sw.Elapsed);
+                }
             }
 
             streamUpdates.Clear();
