@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using CsvHelper;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
 using SIBR.Storage.API.Models;
@@ -25,11 +28,24 @@ namespace SIBR.Storage.API.Controllers
         }
         
         [Route("teams")]
-        public async Task<IActionResult> GetTeams()
-        {
-            return Ok(new ApiResponse<ApiTeam>()
+        public async Task<IActionResult> GetTeams([FromQuery] TeamQuery query) {
+            var teams = await _store.GetTeams();
+            
+            if (query.Format == ResponseFormat.Csv)
             {
-                Data = (await _store.GetTeams()).Select(u => new ApiTeam(u))
+                await using var sw = new StringWriter();
+                await using (var w = new CsvWriter(sw, CultureInfo.InvariantCulture))
+                {
+                    w.Configuration.TypeConverterCache.AddConverter<bool>(new LowercaseBooleanConverter());
+                    await w.WriteRecordsAsync(teams.Select(x => new CsvTeam(x)));
+                }
+
+                return Ok(sw.ToString());
+            }
+            
+            return Ok(new ApiResponse<ApiTeam>
+            {
+                Data = teams.Select(u => new ApiTeam(u))
             });
         }
 
@@ -62,6 +78,11 @@ namespace SIBR.Storage.API.Controllers
             public SortOrder Order { get; set; }
             public PageToken Page { get; set; }
             [Range(1, 250)] public int? Count { get; set; }
+        }
+
+        public class TeamQuery
+        {
+            public ResponseFormat Format { get; set; }
         }
     }
 }
