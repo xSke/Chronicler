@@ -34,12 +34,15 @@ namespace SIBR.Storage.Ingest
         protected override async Task RunInterval()
         {
             var index = await FetchResource("/");
+            if (index == null)
+                return;
+            
             var resources = await Task.WhenAll(ExtractResourcePathsFromPage(index)
                 .Select(FetchResource));
             
             await using var conn = await _db.Obtain();
             await using var tx = await conn.BeginTransactionAsync();
-            await _siteUpdateStore.SaveSiteUpdates(conn, resources.Concat(new[] {index}).ToList());
+            await _siteUpdateStore.SaveSiteUpdates(conn,  resources.Where(u => u != null).Concat(new[] {index}).ToList());
             await tx.CommitAsync();
         }
 
@@ -59,6 +62,12 @@ namespace SIBR.Storage.Ingest
         private async Task<SiteUpdate> FetchResource(string path)
         {
             var response = await _client.GetAsync(new Uri(new Uri("https://www.blaseball.com/"), path));
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.Warning("Got {StatusCode} response from {Path}, returning null", response.StatusCode, path);
+                return null;
+            }
+
             var bytes = await response.Content.ReadAsByteArrayAsync();
 
             var lastModifiedDto = response.Content.Headers.LastModified;
