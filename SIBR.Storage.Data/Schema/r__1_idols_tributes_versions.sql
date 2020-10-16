@@ -20,11 +20,17 @@ create materialized view tributes_by_player as
 create unique index on tributes_by_player (timestamp, update_id, player_id);
 
 create materialized view tributes_hourly as
+select
+    versions_hourly.update_id,
+    versions_hourly.timestamp,
+    peanuts,
+    player_id
+from (
     select
         (array_agg(update_id))[1] as update_id,
-        date_trunc('hour', timestamp) as timestamp,
-        player_id,
-        min(peanuts) as peanuts
-    from tributes_by_player
-    group by date_trunc('hour', timestamp), player_id;
-create unique index on tributes_hourly (timestamp, update_id, player_id);
+        (array_agg(data))[1] as data,
+        date_trunc('hour', first_seen) as timestamp
+    from tributes_versions
+        group by date_trunc('hour', first_seen)
+) as versions_hourly
+    inner join tributes_by_player using (update_id);
