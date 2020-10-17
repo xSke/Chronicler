@@ -79,7 +79,8 @@ create materialized view roster_versions as
     ) as roster_versions_all
     where (team_id, position, roster_index) is distinct from (prev_team_id, prev_position, prev_roster_index)
     window w as (partition by player_id order by first_seen);
-create unique index on roster_versions(player_id, first_seen, update_id);
+-- *sigh* why do you keep breaking my stuff, Lori Boston
+create unique index on roster_versions(player_id, team_id, position, first_seen, update_id);
 
 create view players_view as
     select
