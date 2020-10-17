@@ -37,9 +37,34 @@ namespace SIBR.Storage.Data
             return _db.QueryKataAsync<TeamUpdateView>(q);
         }
 
+        public IAsyncEnumerable<RosterUpdateView> GetRosterUpdates(RosterUpdateQueryOpts opts)
+        {
+            var q = new SqlKata.Query("roster_versions")
+                .ApplySorting(opts, "first_seen", "update_id")
+                .ApplyBounds(opts, "first_seen");
+
+            if (opts.Teams != null)
+                q.WhereIn("team_id", opts.Teams);
+            if (opts.Players != null)
+                q.WhereIn("player_id", opts.Players);
+
+            return _db.QueryKataAsync<RosterUpdateView>(q);
+        }
+
         public class TeamUpdateQueryOpts: IBoundedQuery<Instant>, IPaginatedQuery
         {
             public Guid[] Teams { get; set; }
+            public Instant? Before { get; set; }
+            public Instant? After { get; set; }
+            public int? Count { get; set; }
+            public SortOrder Order { get; set; }
+            public PageToken Page { get; set; }
+        }
+        
+        public class RosterUpdateQueryOpts: IBoundedQuery<Instant>, IPaginatedQuery
+        {
+            public Guid[] Teams { get; set; }
+            public Guid[] Players { get; set; }
             public Instant? Before { get; set; }
             public Instant? After { get; set; }
             public int? Count { get; set; }
