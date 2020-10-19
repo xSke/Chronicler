@@ -29,7 +29,10 @@ create materialized view current_roster as
                 value::uuid as player_id,
                 (ordinality - 1) as roster_index
             from jsonb_array_elements_text(data -> position) with ordinality
-        ) as players on true;
+        ) as players on true
+    -- PODS team is gone from the API so players on there are still listed in historical data
+    -- AND the new teams they're also on. Need this to filter them out from "current roster"
+    where team_id != '40b9ec2a-cb43-4dbb-b836-5accb62e7c20';
 create unique index on current_roster (player_id);
 
 create materialized view player_versions as
