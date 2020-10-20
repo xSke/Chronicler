@@ -19,7 +19,7 @@ namespace SIBR.Storage.Ingest
             new MiscEndpointWorker(services, Duration.FromMinutes(10),  sourceId, new[]
             {
                 (UpdateType.OffseasonSetup, "https://www.blaseball.com/database/offseasonSetup"),
-            }, new [] { "tributes_by_player", "tributes_hourly" }), // these matviews are slow so don't update them as often... 
+            }, new [] { "tributes_versions", "tributes_by_player", "tributes_hourly" }), // these matviews are slow so don't update them as often... 
             new SiteUpdateWorker(services, sourceId),
             new StreamDataWorker(services, sourceId), 
             new TeamPlayerDataWorker(services, sourceId),
