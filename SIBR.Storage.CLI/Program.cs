@@ -53,6 +53,13 @@ namespace SIBR.Storage.CLI
             [Value(0, MetaName = "file", HelpText = "Output file")]
             public string File { get; set; }
         }
+        
+        [Verb("exportraw", HelpText = "Export data in raw format")]
+        public class ExportRawCmd
+        {
+            [Value(0, MetaName = "directory", HelpText = "Output directory")]
+            public string Directory { get; set; }
+        }
 
         [Verb("replay")]
         public class ReplayCmd
@@ -76,6 +83,7 @@ namespace SIBR.Storage.CLI
                 .AddSingleton<FlatFileExport>()
                 .AddSingleton<StreamReplay>()
                 .AddSingleton<SQLiteExport>()
+                .AddSingleton<RawExport>()
                 .BuildServiceProvider();
 
             var result = Parser.Default
@@ -91,6 +99,12 @@ namespace SIBR.Storage.CLI
             await result.WithParsedAsync<ReplayCmd>(opts => HandleReplay(services, opts));
             await result.WithParsedAsync<ExportCmd>(opts => HandleExport(services, opts));
             await result.WithParsedAsync<ExportDbCmd>(opts => HandleExportDb(services, opts));
+            await result.WithParsedAsync<ExportRawCmd>(opts => HandleExportRaw(services, opts));
+        }
+
+        private static Task HandleExportRaw(ServiceProvider services, ExportRawCmd opts)
+        {
+            return services.GetRequiredService<RawExport>().Run(opts);
         }
 
         private static Task HandleExportDb(IServiceProvider services, ExportDbCmd opts)
