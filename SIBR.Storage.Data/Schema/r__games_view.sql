@@ -12,7 +12,6 @@ inner join lateral
 create unique index on games(game_id);
 create index games_season_day_idx on games(season, day, game_id);
 
-drop view if exists games_view;
 create view games_view as
     select
         game_id,

@@ -34,3 +34,4 @@ from (
         group by date_trunc('hour', first_seen)
 ) as versions_hourly
     inner join tributes_by_player using (update_id);
+create unique index on tributes_hourly (player_id, timestamp);
