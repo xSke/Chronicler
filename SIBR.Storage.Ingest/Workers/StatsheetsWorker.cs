@@ -20,12 +20,9 @@ namespace SIBR.Storage.Ingest
         private readonly HttpClient _client;
         private readonly IClock _clock;
         
-        public StatsheetsWorker(IServiceProvider services, Guid sourceId) : base(services)
+        public StatsheetsWorker(IServiceProvider services, IntervalWorkerConfiguration config, Guid sourceId) : base(services, config)
         {
             _sourceId = sourceId;
-            Interval = TimeSpan.FromMinutes(1);
-            Offset = TimeSpan.FromSeconds(10);
-
             _db = services.GetRequiredService<Database>();
             _client = services.GetRequiredService<HttpClient>();
             _updateStore = services.GetRequiredService<UpdateStore>();

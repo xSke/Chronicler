@@ -40,7 +40,7 @@ namespace SIBR.Storage.API.Controllers
                 return Unauthorized();
 
             var entityUpdates = updates
-                .Select(u => EntityUpdate.From(u.Type, source, u.Timestamp, JToken.Parse(u.Data.GetRawText())))
+                .Select(u => EntityUpdate.From(u.Type, source, u.Timestamp, JToken.Parse(u.Data.GetRawText()), idOverride: u.IdOverride))
                 .ToList();
             
             _logger.Information("Receiving {Count} updates from source {Source}", entityUpdates.Count, source);
@@ -76,6 +76,7 @@ namespace SIBR.Storage.API.Controllers
 
         public class IngestUpdate
         {
+            public Guid? IdOverride { get; set; }
             public UpdateType Type { get; set; }
             public Instant Timestamp { get; set; }
             public JsonElement Data { get; set; }

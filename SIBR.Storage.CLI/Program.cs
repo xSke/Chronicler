@@ -1,8 +1,11 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CommandLine;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using NodaTime;
 using SIBR.Storage.CLI.Export;
 using SIBR.Storage.CLI.Import;
@@ -35,7 +38,6 @@ namespace SIBR.Storage.CLI
         [Verb("ingest")]
         public class IngestCmd
         {
-            [Value(0, MetaName = "sourceid")] public Guid SourceId { get; set; }
         }
 
         [Verb("export", HelpText = "Export data to files")]
@@ -73,6 +75,17 @@ namespace SIBR.Storage.CLI
 
         static async Task Main(string[] args)
         {
+            var config = new ConfigurationBuilder()
+                .AddJsonFile(cfg =>
+                {
+                    cfg.FileProvider = new PhysicalFileProvider(Directory.GetCurrentDirectory());
+                    cfg.Path = "config.json";
+                    cfg.Optional = false;
+                })
+                .AddEnvironmentVariables()
+                .Build()
+                .Get<ChronConfiguration>();
+            
             var services = new ServiceCollection()
                 .AddSerilog()
                 .AddSibrStorage()
@@ -87,7 +100,7 @@ namespace SIBR.Storage.CLI
                 .BuildServiceProvider();
 
             var result = Parser.Default
-                .ParseArguments<ImportCmd, MigrationsCmd, IngestCmd, ExportCmd, ExportDbCmd, ReplayCmd>(args);
+                .ParseArguments<ImportCmd, MigrationsCmd, IngestCmd, ExportCmd, ExportDbCmd, ExportRawCmd, ReplayCmd>(args);
 
             if (result.TypeInfo.Current != typeof(MigrationsCmd))
                 // Init sets up NodaTime in a way that breaks Evolve, so don't do it if we're migrating
@@ -95,7 +108,7 @@ namespace SIBR.Storage.CLI
 
             await result.WithParsedAsync<ImportCmd>(opts => HandleImport(services, opts));
             await result.WithParsedAsync<MigrationsCmd>(opts => HandleMigrations(services, opts));
-            await result.WithParsedAsync<IngestCmd>(opts => HandleIngest(services, opts));
+            await result.WithParsedAsync<IngestCmd>(opts => HandleIngest(services, opts, config));
             await result.WithParsedAsync<ReplayCmd>(opts => HandleReplay(services, opts));
             await result.WithParsedAsync<ExportCmd>(opts => HandleExport(services, opts));
             await result.WithParsedAsync<ExportDbCmd>(opts => HandleExportDb(services, opts));
@@ -117,10 +130,10 @@ namespace SIBR.Storage.CLI
             return services.GetRequiredService<Database>().RunMigrations(opts.Repair);
         }
 
-        private static async Task HandleIngest(IServiceProvider services, IngestCmd opts)
+        private static async Task HandleIngest(IServiceProvider services, IngestCmd _, ChronConfiguration config)
         {
-            await Task.WhenAll(IngestWorkers.CreateWorkers(services, opts.SourceId)
-                .Select(w => w.Start()));
+            var workers = IngestWorkers.CreateWorkers(services, config.Ingest);
+            await Task.WhenAll(workers.Select(w => w.Start()));
         }
 
         private static async Task HandleExport(IServiceProvider services, ExportCmd opts)

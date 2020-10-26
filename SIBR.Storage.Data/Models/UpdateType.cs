@@ -22,6 +22,13 @@
         TeamStatsheet = 19,
         PlayerStatsheet = 20,
         SeasonStatsheet = 21,
-        Bossfight = 22
+        Bossfight = 22,
+        OffseasonRecap = 23,
+        BonusResult = 24,
+        DecreeResult = 25,
+        EventResult = 26,
+        Playoffs = 27,
+        PlayoffRound = 28,
+        PlayoffMatchup = 29
     }
 }

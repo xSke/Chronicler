@@ -20,7 +20,7 @@ namespace SIBR.Storage.Ingest
         private readonly IClock _clock;
         private readonly Guid _sourceId;
 
-        public TeamPlayerDataWorker(IServiceProvider services, Guid sourceId) : base(services)
+        public TeamPlayerDataWorker(IServiceProvider services, IntervalWorkerConfiguration config, Guid sourceId) : base(services, config)
         {
             _sourceId = sourceId;
             _client = services.GetRequiredService<HttpClient>();
@@ -28,7 +28,6 @@ namespace SIBR.Storage.Ingest
             _playerStore = services.GetRequiredService<PlayerUpdateStore>();
             _db = services.GetRequiredService<Database>();
             _clock = services.GetRequiredService<IClock>();
-            Interval = TimeSpan.FromMinutes(2);
         }
 
         protected override async Task RunInterval()

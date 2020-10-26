@@ -23,7 +23,7 @@ namespace SIBR.Storage.Ingest
         private readonly UpdateStore _updateStore;
         private readonly GameStore _gameStore;
 
-        public GameEndpointWorker(IServiceProvider services, Guid sourceId) : base(services)
+        public GameEndpointWorker(IServiceProvider services, IntervalWorkerConfiguration config, Guid sourceId) : base(services, config)
         {
             _sourceId = sourceId;
             _db = services.GetRequiredService<Database>();
@@ -32,8 +32,6 @@ namespace SIBR.Storage.Ingest
             _client = services.GetRequiredService<HttpClient>();
             _updateStore = services.GetRequiredService<UpdateStore>();
             _gameStore = services.GetRequiredService<GameStore>();
-            Interval = TimeSpan.FromSeconds(1);
-            Offset = TimeSpan.FromSeconds(0.5);
         }
 
         protected override async Task RunInterval()

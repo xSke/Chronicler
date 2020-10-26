@@ -21,7 +21,7 @@ namespace SIBR.Storage.Ingest
         private readonly HttpClient _client;
         private readonly IClock _clock;
 
-        public FutureGamesWorker(IServiceProvider services, Guid sourceId) : base(services)
+        public FutureGamesWorker(IServiceProvider services, IntervalWorkerConfiguration config, Guid sourceId) : base(services, config)
         {
             _sourceId = sourceId;
             _updateStore = services.GetRequiredService<UpdateStore>();
@@ -30,9 +30,6 @@ namespace SIBR.Storage.Ingest
             _db = services.GetRequiredService<Database>();
             _client = services.GetRequiredService<HttpClient>();
             _clock = services.GetRequiredService<IClock>();
-
-            Interval = TimeSpan.FromHours(1);
-            Offset = TimeSpan.FromSeconds(5);
         }
 
         protected override async Task RunInterval()
@@ -51,8 +48,7 @@ namespace SIBR.Storage.Ingest
 
                 updates.AddRange(json.Select(game => GameUpdate.From(_sourceId, timestamp, game)));
             }
-
-
+            
             await using (var tx = await conn.BeginTransactionAsync())
             {
                 await _gameUpdateStore.SaveGameUpdates(conn, updates);

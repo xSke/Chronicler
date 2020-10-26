@@ -11,12 +11,12 @@ namespace SIBR.Storage.Data.Models
     {
         public JToken Data { get; set; }
 
-        public static EntityUpdate From(UpdateType type, Guid sourceId, Instant timestamp, JToken data, SibrHasher hasher = null) =>
+        public static EntityUpdate From(UpdateType type, Guid sourceId, Instant timestamp, JToken data, SibrHasher hasher = null, Guid? idOverride = null) =>
             new EntityUpdate
             {
                 Type = type,
                 SourceId = sourceId,
-                EntityId = TgbUtils.TryGetId(data) ?? default,
+                EntityId = idOverride ?? TgbUtils.TryGetId(data) ?? default,
                 Timestamp = timestamp,
                 Hash = hasher?.HashToken(data) ?? SibrHash.HashAsGuid(data),
                 Data = data,

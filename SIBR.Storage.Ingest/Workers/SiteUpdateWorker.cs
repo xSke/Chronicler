@@ -20,15 +20,14 @@ namespace SIBR.Storage.Ingest
         private readonly Database _db;
         private readonly IClock _clock;
 
-        public SiteUpdateWorker(IServiceProvider services, Guid sourceId) :
-            base(services)
+        public SiteUpdateWorker(IServiceProvider services, IntervalWorkerConfiguration config, Guid sourceId) :
+            base(services, config)
         {
             _sourceId = sourceId;
             _client = services.GetRequiredService<HttpClient>();
             _siteUpdateStore = services.GetRequiredService<SiteUpdateStore>();
             _db = services.GetRequiredService<Database>();
             _clock = services.GetRequiredService<IClock>();
-            Interval = TimeSpan.FromMinutes(5);
         }
 
         protected override async Task RunInterval()

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Text;
 using Newtonsoft.Json.Linq;
 using NodaTime;
 using SIBR.Storage.Data.Models;
@@ -10,6 +11,15 @@ namespace SIBR.Storage.Data.Utils
 {
     public class TgbUtils
     {
+        public static Guid GenerateGuidFromString(string key)
+        {
+            if (Guid.TryParse(key, out var guid))
+                return guid;
+
+            var keyBytes = Encoding.UTF8.GetBytes(key);
+            return SibrHash.HashAsGuid(keyBytes);
+        }
+        
         public static Guid GetId(JObject obj)
         {
             if (obj.ContainsKey("_id"))

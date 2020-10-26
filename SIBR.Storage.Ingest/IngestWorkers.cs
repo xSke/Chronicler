@@ -1,31 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
-using NodaTime;
-using SIBR.Storage.Data.Models;
+using System.Linq;
 
 namespace SIBR.Storage.Ingest
 {
     public class IngestWorkers
     {
-        public static IEnumerable<BaseWorker> CreateWorkers(IServiceProvider services, Guid sourceId) => new BaseWorker[]
+        public static IEnumerable<BaseWorker> CreateWorkers(IServiceProvider services, IngestConfiguration config)
         {
-            new MiscEndpointWorker(services, Duration.FromMinutes(1), sourceId, new[]
+            var workers = new List<BaseWorker>
             {
-                (UpdateType.Idols, "https://www.blaseball.com/api/getIdols"),
-                (UpdateType.Tributes, "https://www.blaseball.com/api/getTribute"),
-                (UpdateType.GlobalEvents, "https://www.blaseball.com/database/globalEvents"),
-                (UpdateType.Sim, "https://www.blaseball.com/database/simulationData"),
-            }, new []{"idols_versions", "simdata_versions", "globalevents_versions", "temporal_versions"}) { Offset = TimeSpan.FromSeconds(1) },
-            new MiscEndpointWorker(services, Duration.FromMinutes(10),  sourceId, new[]
-            {
-                (UpdateType.OffseasonSetup, "https://www.blaseball.com/database/offseasonSetup"),
-            }, new [] { "tributes_versions", "tributes_by_player", "tributes_hourly" }), // these matviews are slow so don't update them as often... 
-            new SiteUpdateWorker(services, sourceId),
-            new StreamDataWorker(services, sourceId), 
-            new TeamPlayerDataWorker(services, sourceId),
-            new GameEndpointWorker(services, sourceId),
-            new FutureGamesWorker(services, sourceId),
-            new StatsheetsWorker(services, sourceId), 
-        };
+                new SiteUpdateWorker(services, config.SiteUpdateWorker, config.SourceId),
+                new TeamPlayerDataWorker(services, config.TeamPlayerWorker, config.SourceId),
+                new GameEndpointWorker(services, config.GameEndpointWorker, config.SourceId),
+                new FutureGamesWorker(services, config.FutureGamesWorker, config.SourceId),
+                new StatsheetsWorker(services, config.StatsheetsWorker, config.SourceId),
+                new ElectionResultsWorker(services, config.ElectionResultsWorker, config.SourceId),
+                new StreamDataWorker(services, config.SourceId)
+            };
+            workers.AddRange(config.MiscEndpointWorkers.Select(workerConfig => new MiscEndpointWorker(services, workerConfig, config.SourceId)));
+            return workers;
+        }
     }
 }

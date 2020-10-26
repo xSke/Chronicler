@@ -14,30 +14,27 @@ namespace SIBR.Storage.Ingest
 {
     public class MiscEndpointWorker : IntervalWorker
     {
-        private readonly (UpdateType updateType, string endpoint)[] _endpoints;
-        private readonly string[] _refreshViews;
         private readonly HttpClient _client;
         private readonly Database _db;
         private readonly UpdateStore _updateStore;
         private readonly IClock _clock;
+        private readonly MiscEndpointWorkerConfiguration _config;
         private readonly Guid _sourceId;
 
-        public MiscEndpointWorker(IServiceProvider services, Duration interval, Guid sourceId, (UpdateType updateType, string endpoint)[] endpoints, string[] refreshViews = null) :
-            base(services)
+        public MiscEndpointWorker(IServiceProvider services, MiscEndpointWorkerConfiguration config, Guid sourceId) :
+            base(services, config)
         {
-            _endpoints = endpoints;
-            _refreshViews = refreshViews;
+            _config = config;
             _sourceId = sourceId;
             _client = services.GetRequiredService<HttpClient>();
             _updateStore = services.GetRequiredService<UpdateStore>();
             _db = services.GetRequiredService<Database>();
             _clock = services.GetRequiredService<IClock>();
-            Interval = interval.ToTimeSpan();
         }
 
         protected override async Task RunInterval()
         {
-            var updates = await Task.WhenAll(_endpoints.Select(PollEndpoint));
+            var updates = await Task.WhenAll(_config.Endpoints.Select(PollEndpoint));
 
             await using var conn = await _db.Obtain();
             await using (var tx = await conn.BeginTransactionAsync())
@@ -47,28 +44,26 @@ namespace SIBR.Storage.Ingest
                 await tx.CommitAsync();
             }
 
-            if (_refreshViews != null) 
-                await _db.RefreshMaterializedViews(conn, _refreshViews);
+            if (_config.MaterializedViews != null) 
+                await _db.RefreshMaterializedViews(conn, _config.MaterializedViews.ToArray());
         }
 
         private async Task<IEnumerable<EntityUpdate>> PollEndpoint(
-            (UpdateType updateType, string endpoint) entry)
+            IngestEndpoint endpoint)
         {
-            var (type, endpoint) = entry;
-
             try
             {
                 var timestamp = _clock.GetCurrentInstant();
-                var json = await _client.GetStringAsync(endpoint);
+                var json = await _client.GetStringAsync(endpoint.Url);
                 var token = JToken.Parse(json);
 
-                var update = EntityUpdate.From(type, _sourceId, timestamp, token);
-                _logger.Information("- Fetched endpoint {Endpoint} (hash {Hash})", endpoint, update.Hash);
+                var update = EntityUpdate.From(endpoint.Type, _sourceId, timestamp, token);
+                _logger.Information("- Fetched endpoint {Endpoint} ({UpdateType}, hash {Hash})", endpoint.Url, endpoint.Type, update.Hash);
                 return new[] {update};
             }
             catch (Exception e)
             {
-                _logger.Error(e, "Error reading endpoint {Endpoint}", endpoint);
+                _logger.Error(e, "Error reading endpoint {Endpoint}", endpoint.Url);
             }
 
             return ImmutableList<EntityUpdate>.Empty;
