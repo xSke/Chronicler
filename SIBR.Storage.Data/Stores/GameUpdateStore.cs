@@ -45,17 +45,17 @@ namespace SIBR.Storage.Data
             return _db.QueryKataAsync<GameUpdateView>(q);
         }
 
-        public async Task SaveGameUpdates(NpgsqlConnection conn,
+        public async Task<int> SaveGameUpdates(NpgsqlConnection conn,
             IReadOnlyCollection<GameUpdate> updates, bool log = true, bool updateSearchIndex = true)
         {
             if (log)
                 LogUpdates(updates);
 
             await _objectStore.SaveObjects(conn, updates);
-            await SaveGameUpdatesTable(conn, updates, updateSearchIndex);
+            return await SaveGameUpdatesTable(conn, updates, updateSearchIndex);
         }
 
-        private static async Task SaveGameUpdatesTable(NpgsqlConnection conn, IReadOnlyCollection<GameUpdate> updates,
+        private static async Task<int> SaveGameUpdatesTable(NpgsqlConnection conn, IReadOnlyCollection<GameUpdate> updates,
             bool updateSearchIndex)
         {
             await conn.ExecuteAsync(
@@ -71,7 +71,7 @@ namespace SIBR.Storage.Data
                 });
 
             var grouped = updates.GroupBy(u => u.Hash).ToList();
-            await conn.ExecuteAsync(@"
+            return await conn.ExecuteAsync(@"
 insert into game_updates_unique (hash, game_id, timestamp, data, season, day, search_tsv)
     select
         hash,

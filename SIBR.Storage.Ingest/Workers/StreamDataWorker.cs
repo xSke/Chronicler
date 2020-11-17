@@ -41,36 +41,18 @@ namespace SIBR.Storage.Ingest
             await using var conn = await _db.Obtain();
             await using var tx = await conn.BeginTransactionAsync();
             await _updateStore.SaveUpdate(conn, EntityUpdate.From(UpdateType.Stream, _sourceId, timestamp, data));
-
-            // var gamesRes = await SaveGameUpdates(data, conn, timestamp);
-
-            using var hasher = new SibrHasher();
-            var updates = TgbUtils.ExtractUpdatesFromStreamRoot(_sourceId, timestamp, data, hasher).EntityUpdates;
-            var miscRes = await _updateStore.SaveUpdates(conn, updates);
             
-            _logger.Information("Received stream update, saved {MiscUpdates} updates", miscRes);
+            using var hasher = new SibrHasher();
+            var extracted = TgbUtils.ExtractUpdatesFromStreamRoot(_sourceId, timestamp, data, hasher);
+            var gameRes = await _gameStore.SaveGameUpdates(conn, extracted.GameUpdates);
+            var miscRes = await _updateStore.SaveUpdates(conn, extracted.EntityUpdates);
+            
+            _logger.Information("Received stream update, saved {GameUpdates} game updates, {MiscUpdates} updates", 
+                gameRes, miscRes);
             
             await tx.CommitAsync();
         }
         
-        private async Task<(int, Guid)> SaveGameUpdates(JObject data, NpgsqlConnection conn, Instant timestamp)
-        {
-            if (data["value"]?["games"]?["schedule"] is JArray scheduleObj)
-            {
-                await SaveGameUpdates(conn, timestamp, scheduleObj.OfType<JObject>());
-                return (scheduleObj.Count, SibrHash.HashAsGuid(scheduleObj));
-            }
-            
-            return (0, default);
-        }
-
-        private async Task SaveGameUpdates(NpgsqlConnection conn, Instant timestamp,
-            IEnumerable<JObject> gameUpdates)
-        {
-            var updates = GameUpdate.FromArray(_sourceId, timestamp, gameUpdates);
-            await _gameStore.SaveGameUpdates(conn, updates.ToList());
-        }
-
         protected override async Task Run()
         {
             _logger.Information("Starting stream data consumer");
