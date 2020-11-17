@@ -29,6 +29,7 @@
         EventResult = 26,
         Playoffs = 27,
         PlayoffRound = 28,
-        PlayoffMatchup = 29
+        PlayoffMatchup = 29,
+        Tournament = 30
     }
 }

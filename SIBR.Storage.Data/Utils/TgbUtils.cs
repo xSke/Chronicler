@@ -63,6 +63,7 @@ namespace SIBR.Storage.Data.Utils
                 (UpdateType.Sim, "value.games.sim"),
                 (UpdateType.Season, "value.games.season"),
                 (UpdateType.Standings, "value.games.standings"),
+                (UpdateType.Tournament, "value.games.tournament"),
                 (UpdateType.Team, "value.leagues.teams[*]"),
                 (UpdateType.League, "value.leagues.leagues[*]"),
                 (UpdateType.Subleague, "value.leagues.subleagues[*]"),
