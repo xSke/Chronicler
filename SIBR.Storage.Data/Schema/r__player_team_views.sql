@@ -33,7 +33,7 @@ create materialized view current_roster as
     -- PODS team is gone from the API so players on there are still listed in historical data
     -- AND the new teams they're also on. Need this to filter them out from "current roster"
     where team_id != '40b9ec2a-cb43-4dbb-b836-5accb62e7c20';
-create unique index on current_roster (player_id);
+create unique index on current_roster (player_id, team_id);
 
 create materialized view player_versions as
     select
@@ -101,6 +101,6 @@ create view players_view as
         )) as is_forbidden
     from latest_view l
         left join lateral (
-            select team_id, position, roster_index from roster_versions rv where rv.player_id = l.entity_id order by first_seen desc limit 1
+            select team_id, position, roster_index from current_roster cr where cr.player_id = l.entity_id limit 1
         ) as current_roster on true
         where l.type = 1;
