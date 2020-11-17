@@ -39,8 +39,16 @@ namespace SIBR.Storage.Ingest
             EntityUpdate sim;
             await using (var conn = await _db.Obtain())
                sim = await _updateStore.GetLatestUpdate(conn, UpdateType.Sim);
+
+            var phase = sim.Data.Value<int>("phase");
+            var season = sim.Data.Value<int>("season");
+            var day = sim.Data.Value<int>("day");
+
+            if (phase == 13)
+                // Coffee Cup has the last "real" season in simdata but the actual games are marked as -1
+                season = -1;
             
-            await FetchGamesInner(sim.Data.Value<int>("season"), sim.Data.Value<int>("day"));
+            await FetchGamesInner(season, day);
         }
 
         private async Task FetchGamesInner(int season, int day)
