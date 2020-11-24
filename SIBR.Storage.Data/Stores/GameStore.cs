@@ -1,19 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using NodaTime;
-using Npgsql;
 using SIBR.Storage.Data.Models;
 using SIBR.Storage.Data.Query;
 using SIBR.Storage.Data.Utils;
-using SqlKata;
 
 namespace SIBR.Storage.Data
 {
     public class GameStore
     {
         private readonly Database _db;
-        private readonly HashSet<Guid> _knownGames = new HashSet<Guid>(); 
         
         public GameStore(Database db)
         {
@@ -25,11 +21,12 @@ namespace SIBR.Storage.Data
             var q = new SqlKata.Query("games_view");
             
             if (opts.Order == SortOrder.Desc)
-                q.OrderByDesc("season", "day");
+                q.OrderByDesc("season", "tournament", "day");
             else
-                q.OrderBy("season", "day");
+                q.OrderBy("season", "tournament", "day");
 
             if (opts.Season != null) q.Where("season", opts.Season.Value);
+            if (opts.Tournament != null) q.Where("tournament", opts.Tournament.Value);
             if (opts.Day != null) q.Where("day", opts.Day.Value);
             if (opts.Before != null) q.Where("start_time", "<", opts.Before.Value);
             if (opts.After != null) q.Where("start_time", ">", opts.After.Value);
@@ -43,20 +40,10 @@ namespace SIBR.Storage.Data
 
             return _db.QueryKataAsync<GameView>(q);
         }
-
-        public async Task TryAddNewGameIds(NpgsqlConnection conn, IEnumerable<Guid> gameIds)
-        {
-            var anyNewGames = false;
-            foreach (var gameId in gameIds)
-                if (_knownGames.Add(gameId))
-                    anyNewGames = true;
-
-            if (anyNewGames)
-                await _db.RefreshMaterializedViews(conn, "games");
-        }
         
         public class GameQueryOptions
         {
+            public int? Tournament;
             public int? Season;
             public int? Day;
             public Instant? Before;

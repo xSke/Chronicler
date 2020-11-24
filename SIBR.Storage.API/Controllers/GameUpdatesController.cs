@@ -32,6 +32,7 @@ namespace SIBR.Storage.API.Controllers
             var updates = await _store.GetGameUpdates(new GameUpdateStore.GameUpdateQueryOptions
             {
                 Season = opts.Season,
+                Tournament = opts.Tournament,
                 Day = opts.Day,
                 After = opts.After,
                 Count = opts.Count ?? 100,
@@ -52,6 +53,7 @@ namespace SIBR.Storage.API.Controllers
         public class GameUpdatesQueryOptions: IUpdateQuery
         {
             public int? Season { get; set; }
+            public int? Tournament { get; set; }
             public int? Day { get; set; }
             
             [BindProperty(BinderType = typeof(CommaSeparatedBinder))]

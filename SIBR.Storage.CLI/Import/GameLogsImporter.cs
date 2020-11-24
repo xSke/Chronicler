@@ -62,7 +62,6 @@ namespace SIBR.Storage.CLI
             }
             
             await FlushUpdates(conn, streamUpdates, gameUpdates, miscUpdates);
-            await _gameStore.TryAddNewGameIds(conn, gameUpdates.Select(gu => gu.GameId));
             await _gameUpdateStore.UpdateSearchIndex(conn);
         }
 

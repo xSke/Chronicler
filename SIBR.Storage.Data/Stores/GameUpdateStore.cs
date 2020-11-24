@@ -37,6 +37,7 @@ namespace SIBR.Storage.Data
                 q.ApplySorting(opts, "timestamp", "hash");
 
             if (opts.Season != null) q.Where("season", opts.Season.Value);
+            if (opts.Tournament != null) q.Where("tournament", opts.Tournament.Value);
             if (opts.Day != null) q.Where("day", opts.Day.Value);
             if (opts.Game != null) q.WhereIn("game_id", opts.Game);
             if (opts.Search != null) q.WhereRaw("search_tsv @@ websearch_to_tsquery(?)", opts.Search);
@@ -59,29 +60,32 @@ namespace SIBR.Storage.Data
             bool updateSearchIndex)
         {
             await conn.ExecuteAsync(
-                "insert into game_updates (source_id, timestamp, game_id, hash, season, day) select unnest(@SourceId), unnest(@Timestamp), unnest(@GameId), unnest(@Hash), unnest(@Season), unnest(@Day) on conflict do nothing",
+                "insert into game_updates (source_id, timestamp, game_id, hash, tournament, season, day) select unnest(@SourceId), unnest(@Timestamp), unnest(@GameId), unnest(@Hash), unnest(@Tournament), unnest(@Season), unnest(@Day) on conflict do nothing",
                 new
                 {
                     SourceId = updates.Select(u => u.SourceId).ToArray(),
                     Timestamp = updates.Select(u => u.Timestamp).ToArray(),
                     Hash = updates.Select(u => u.Hash).ToArray(),
                     GameId = updates.Select(u => u.GameId).ToArray(),
+                    Tournament = updates.Select(u => u.Tournament).ToArray(),
                     Season = updates.Select(u => u.Season).ToArray(),
                     Day = updates.Select(u => u.Day).ToArray(),
                 });
 
             var grouped = updates.GroupBy(u => u.Hash).ToList();
             return await conn.ExecuteAsync(@"
-insert into game_updates_unique (hash, game_id, timestamp, data, season, day, search_tsv)
+insert into game_updates_unique (hash, game_id, timestamp, data, season, tournament, day, play_count, search_tsv)
     select
         hash,
         game_id,
         timestamp,
         data,
         season,
+        tournament,
         day,
+        case when play_count >= 0 then play_count end,
         case when @UpdateSearchIndex then to_tsvector('english', data ->> 'lastUpdate') end as search_tsv
-    from (select unnest(@Hash) as hash, unnest(@GameId) as game_id, unnest(@Timestamp) as timestamp, unnest(@Season) as season, unnest(@Day) as day) as new_updates
+    from (select unnest(@Hash) as hash, unnest(@GameId) as game_id, unnest(@Timestamp) as timestamp, unnest(@Season) as season, unnest(@Day) as day, unnest(@Tournament) as tournament, unnest(@PlayCount) as play_count) as new_updates
     inner join objects using (hash)
     on conflict (hash) do update set 
         timestamp = least(game_updates_unique.timestamp, excluded.timestamp);", new
@@ -91,6 +95,8 @@ insert into game_updates_unique (hash, game_id, timestamp, data, season, day, se
                 Timestamp = grouped.Select(g => g.Min(u => u.Timestamp)).ToArray(),
                 Season = grouped.Select(g => g.First().Season).ToArray(),
                 Day = grouped.Select(g => g.First().Day).ToArray(),
+                Tournament = grouped.Select(g => g.First().Tournament).ToArray(),
+                PlayCount = grouped.Select(g => g.First().PlayCount).ToArray(),
                 UpdateSearchIndex = updateSearchIndex
             });
         }
@@ -122,6 +128,7 @@ insert into game_updates_unique (hash, game_id, timestamp, data, season, day, se
         public class GameUpdateQueryOptions: IPaginatedQuery, IBoundedQuery<Instant>
         {
             public int? Season { get; set; }
+            public int? Tournament { get; set; }
             public int? Day { get; set; }
             public Guid[] Game { get; set; }
             public Instant? Before { get; set; }

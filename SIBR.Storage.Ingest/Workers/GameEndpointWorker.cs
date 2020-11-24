@@ -40,20 +40,16 @@ namespace SIBR.Storage.Ingest
             await using (var conn = await _db.Obtain())
                sim = await _updateStore.GetLatestUpdate(conn, UpdateType.Sim);
 
-            var phase = sim.Data.Value<int>("phase");
             var season = sim.Data.Value<int>("season");
+            var tournament = sim.Data.Value<int>("tournament");
             var day = sim.Data.Value<int>("day");
-
-            if (phase == 13)
-                // Coffee Cup has the last "real" season in simdata but the actual games are marked as -1
-                season = -1;
             
-            await FetchGamesInner(season, day);
+            await FetchGamesInner(tournament, season, day);
         }
 
-        private async Task FetchGamesInner(int season, int day)
+        private async Task FetchGamesInner(int tournament, int season, int day)
         {
-            var gameUpdates = await FetchGamesAt(season, day);
+            var gameUpdates = await FetchGamesAt(tournament, season, day);
 
             await using var conn = await _db.Obtain();
             await using (var tx = await conn.BeginTransactionAsync())
@@ -61,21 +57,24 @@ namespace SIBR.Storage.Ingest
                 await _gameUpdateStore.SaveGameUpdates(conn, gameUpdates);
                 await tx.CommitAsync();
             }
-
-            await _gameStore.TryAddNewGameIds(conn, gameUpdates.Select(gu => gu.GameId));
         }
 
-        private async Task<List<GameUpdate>> FetchGamesAt(int season, int day)
+        private async Task<List<GameUpdate>> FetchGamesAt(int tournament, int season, int day)
         {
             var sw = new Stopwatch();
             sw.Start();
-            var jsonStr  = await _client.GetStringAsync($"https://www.blaseball.com/database/games?season={season}&day={day}");
+            
+            var url = tournament >= 0
+                ? $"https://www.blaseball.com/database/games?tournament={tournament}&day={day}"
+                : $"https://www.blaseball.com/database/games?season={season}&day={day}";
+            var jsonStr  = await _client.GetStringAsync(url);
+            
             sw.Stop();
             var timestamp = _clock.GetCurrentInstant();
 
             var json = JArray.Parse(jsonStr);
-            _logger.Information("Polled games endpoint at season {Season} day {Day} (combined hash {Hash}, took {Duration})",
-                season,
+            _logger.Information("Polled games endpoint at season {Season} tournament {Tournament} day {Day} (combined hash {Hash}, took {Duration})",
+                season, tournament,
                 day, SibrHash.HashAsGuid(json), sw.Elapsed);
             
             var updates = json

@@ -34,6 +34,7 @@ namespace SIBR.Storage.API.Controllers
                 After = opts.After,
                 Count = opts.Count,
                 Season = opts.Season,
+                Tournament = opts.Tournament,
                 Day = opts.Day,
                 HasOutcomes = opts.Outcomes,
                 HasStarted = opts.Started,
@@ -68,6 +69,7 @@ namespace SIBR.Storage.API.Controllers
         public class GameQueryOptions : IUpdateQuery
         {
             public int? Season { get; set; }
+            public int? Tournament { get; set; }
             public int? Day { get; set; }
             public bool? Outcomes { get; set; }
             public bool? Started { get; set; }

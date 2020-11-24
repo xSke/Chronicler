@@ -54,8 +54,6 @@ namespace SIBR.Storage.Ingest
                 await _gameUpdateStore.SaveGameUpdates(conn, updates);
                 await tx.CommitAsync();
             }
-
-            await _gameStore.TryAddNewGameIds(conn, updates.Select(gu => gu.GameId));
         }
     }
 }

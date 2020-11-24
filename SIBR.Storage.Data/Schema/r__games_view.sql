@@ -1,20 +1,9 @@
 ﻿drop view if exists games_view;
-drop materialized view if exists games;
-
-create materialized view games as
-select
-    game_id, season, day
-from
-    (select distinct game_id from game_updates_unique) as game_ids
-inner join lateral
-    (select season, day from game_updates_unique gu where gu.game_id = game_ids.game_id limit 1) 
-        as update on true;
-create unique index on games(game_id);
-create index games_season_day_idx on games(season, day, game_id);
 
 create view games_view as
     select
         game_id,
+        tournament,
         season,
         day,
         coalesce(

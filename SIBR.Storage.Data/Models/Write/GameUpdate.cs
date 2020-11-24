@@ -17,6 +17,8 @@ namespace SIBR.Storage.Data.Models
         public Guid GameId { get; set; }
         [JsonIgnore] public int Season { get; set; }
         [JsonIgnore] public int Day { get; set; }
+        [JsonIgnore] public int Tournament { get; set; }
+        [JsonIgnore] public int PlayCount { get; set; }
 
         public static GameUpdate From(Guid sourceId, Instant timestamp, JToken data, SibrHasher hasher = null) =>
             new GameUpdate
@@ -28,6 +30,8 @@ namespace SIBR.Storage.Data.Models
                 GameId = TgbUtils.TryGetId(data) ?? throw new ArgumentException("Game did not have id"),
                 Season = data.Value<int>("season"),
                 Day = data.Value<int>("day"),
+                Tournament = data.Value<int?>("tournament") ?? -1,
+                PlayCount = data.Value<int?>("playCount") ?? -1,
             };
 
         public static IEnumerable<GameUpdate> FromArray(Guid sourceId, Instant timestamp,

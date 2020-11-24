@@ -1,4 +1,6 @@
-﻿create table objects
+﻿create extension if not exists pgcrypto;
+
+create table objects
 (
     hash uuid  not null primary key,
     data jsonb not null
