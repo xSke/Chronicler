@@ -131,6 +131,8 @@ namespace SIBR.Storage.CLI.Import
                     foreach (var obj in objs) 
                         await fn(importer, obj);
                 }
+
+                await importer.CompleteAsync();
             }
             
             _logger.Information("Inserting into main table...");
