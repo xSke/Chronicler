@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
 using MessagePack;
@@ -119,46 +120,51 @@ namespace SIBR.Storage.CLI.Import
         }
 
         private async Task DoImport<T>(string filename, string tmpTableName, string tmpTableColumns, string targetTable,
-            string targetTableColumns, int logInterval, Func<NpgsqlBinaryImporter, T, Task> fn)
+            string targetTableColumns, int bufferSize, Func<NpgsqlBinaryImporter, T, Task> fn)
         {
             await using var conn = await _db.Obtain();
+            var data = ReadData<T>(filename).SelectMany(arr => arr.ToAsyncEnumerable()).Buffer(bufferSize);
+            
             await conn.ExecuteAsync($"create temporary table {tmpTableName}({tmpTableColumns})");
 
-            await using (var importer = conn.BeginBinaryImport($"copy {tmpTableName} from stdin (format binary)"))
+            var total = 0;
+            await foreach (var buf in data)
             {
-                await foreach (var objs in ReadData<T>(filename, logInterval))
+                await using var tx = await conn.BeginTransactionAsync();
+
+                await conn.ExecuteAsync($"truncate table {tmpTableName}");
+                await using (var importer = conn.BeginBinaryImport($"copy {tmpTableName} from stdin (format binary)"))
                 {
-                    foreach (var obj in objs) 
+                    foreach (var obj in buf)
+                    // foreach (var obj in objs)
                         await fn(importer, obj);
+
+                    await importer.CompleteAsync();
                 }
 
-                await importer.CompleteAsync();
+                total += buf.Count;
+            
+                _logger.Information("Inserting into main table...");
+                var rows = await conn.ExecuteAsync(
+                    $"insert into {targetTable} ({targetTableColumns}) select {targetTableColumns} from {tmpTableName} on conflict do nothing");
+                _logger.Information("Inserted {Rows} new rows into {TargetTable} ({TotalCount} so far)", rows, targetTable, total);
+
+                await tx.CommitAsync();
             }
             
-            _logger.Information("Inserting into main table...");
-            var rows = await conn.ExecuteAsync(
-                $"insert into {targetTable} ({targetTableColumns}) select {targetTableColumns} from {tmpTableName} on conflict do nothing");
-            _logger.Information("Inserted {Rows} new rows into {TargetTable}", rows, targetTable);
-
             await conn.ExecuteAsync($"drop table {tmpTableName}");
         }
 
-        private async IAsyncEnumerable<T[]> ReadData<T>(string filename, int logInterval)
+        private async IAsyncEnumerable<T[]> ReadData<T>(string filename)
         {
             _logger.Information("Importing from {Filename}", filename);
             await using var stream = File.OpenRead(filename);
             
             using var reader = new MessagePackStreamReader(stream);
-
-            var count = 0;
             while (await reader.ReadAsync(default) is {} array)
             {
                 var objects = MessagePackSerializer.Deserialize<T[]>(array, _msgpackOpts);
                 
-                foreach (var _ in objects)
-                    if (++count % logInterval == 0)
-                        _logger.Information("Imported {Count} objects so far", count);
-
                 yield return objects;
             }
         }
