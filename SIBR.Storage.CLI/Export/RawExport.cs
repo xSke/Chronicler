@@ -1,15 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
-using NodaTime;
-using NodaTime.Serialization.SystemTextJson;
+using MessagePack;
+using MessagePack.Formatters;
 using Npgsql;
 using NpgsqlTypes;
 using Serilog;
+using SIBR.Storage.CLI.Models;
 using SIBR.Storage.Data;
 
 namespace SIBR.Storage.CLI.Export
@@ -17,43 +15,39 @@ namespace SIBR.Storage.CLI.Export
     public class RawExport
     {
         private readonly Database _db;
-        private readonly JsonSerializerOptions _opts;
+        private readonly MessagePackSerializerOptions _opts;
         private readonly ILogger _logger;
 
-        public RawExport(Database db, ILogger logger)
+        public RawExport(Database db, ILogger logger, MessagePackSerializerOptions opts)
         {
             _db = db;
             _logger = logger.ForContext<RawExport>();
-            _opts = new JsonSerializerOptions
-                {
-                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                }
-                .ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+            _opts = opts;
         }
 
         public async Task Run(Program.ExportRawCmd opts)
         {
             try
             {
-                await ExportAllUpdates(Path.Join(opts.Directory, "updates.json.gz"));
-                await ExportAllObjects(Path.Join(opts.Directory, "objects.json.gz"));
-                await ExportAllBinaryObjects(Path.Join(opts.Directory, "binary_objects.json.gz"));
-                await ExportAllGameUpdates(Path.Join(opts.Directory, "game_updates.json.gz"));
-                await ExportAllSiteUpdates(Path.Join(opts.Directory, "site_updates.json.gz"));
+                await ExportAllUpdates(Path.Join(opts.Directory, "updates.dat"));
+                await ExportAllObjects(Path.Join(opts.Directory, "objects.dat"));
+                await ExportAllBinaryObjects(Path.Join(opts.Directory, "binary_objects.dat"));
+                await ExportAllGameUpdates(Path.Join(opts.Directory, "game_updates.dat"));
+                await ExportAllSiteUpdates(Path.Join(opts.Directory, "site_updates.dat"));
             }
             catch (Exception e)
             {
-                _logger.Error(e, "Error exporting");
+                _logger.Error(e.GetBaseException(), "Error exporting");
             }
         }
 
         private async Task ExportAllSiteUpdates(string filename)
         {
-            await WriteToFile(filename, "site_updates", reader =>
+            await WriteToFile(filename, "site_updates(timestamp, path, hash, source_id, last_modified)", reader =>
             {
                 var su = new RawSiteUpdate
                 {
-                    Timestamp = reader.Read<Instant>(NpgsqlDbType.TimestampTz),
+                    Timestamp = reader.Read<DateTimeOffset>(NpgsqlDbType.TimestampTz).UtcDateTime,
                     Path = reader.Read<string>(NpgsqlDbType.Text),
                     Hash = reader.Read<Guid>(NpgsqlDbType.Uuid)
                 };
@@ -62,74 +56,75 @@ namespace SIBR.Storage.CLI.Export
                 if (!reader.IsNull) su.SourceId = reader.Read<Guid>(NpgsqlDbType.Uuid);
                 else reader.Skip();
                 
-                if (!reader.IsNull) su.LastModified = reader.Read<Instant>(NpgsqlDbType.TimestampTz);
+                if (!reader.IsNull) su.LastModified = reader.Read<DateTimeOffset>(NpgsqlDbType.TimestampTz).UtcDateTime;
                 else reader.Skip();
 
                 return su;
-            });
+            }, 1000);
         }
 
         private async Task ExportAllBinaryObjects(string filename)
         {
-            await WriteToFile(filename, "binary_objects", reader => new RawBinaryObject
+            await WriteToFile(filename, "binary_objects(hash, data)", reader => new RawBinaryObject
             {
                 Hash = reader.Read<Guid>(NpgsqlDbType.Uuid),
-                Data = Convert.ToBase64String(reader.Read<byte[]>(NpgsqlDbType.Bytea))
-            });
+                Data = reader.Read<byte[]>(NpgsqlDbType.Bytea)
+            }, 1000);
         }
 
         private async Task ExportAllGameUpdates(string filename)
         {
-            await WriteToFile(filename, "game_updates", reader => new RawGameUpdate
+            await WriteToFile(filename, "game_updates(timestamp, game_id, hash, source_id, season, day, tournament)", reader => new RawGameUpdate
             {
-                Timestamp = reader.Read<Instant>(NpgsqlDbType.TimestampTz),
+                Timestamp = reader.Read<DateTimeOffset>(NpgsqlDbType.TimestampTz).UtcDateTime,
                 GameId = reader.Read<Guid>(NpgsqlDbType.Uuid),
                 Hash = reader.Read<Guid>(NpgsqlDbType.Uuid),
                 SourceId = reader.Read<Guid>(NpgsqlDbType.Uuid),
                 Season = reader.Read<short>(NpgsqlDbType.Smallint),
                 Day = reader.Read<short>(NpgsqlDbType.Smallint),
-            });
+                Tournament = reader.Read<short>(NpgsqlDbType.Smallint)
+            }, 50000);
         }
 
         private async Task ExportAllObjects(string filename)
         {
-            JsonDocument doc = null;
+            // JsonDocument doc = null;
             
-            await WriteToFile(filename, "objects", reader =>
+            await WriteToFile(filename, "objects(hash, data)", reader =>
             {
                 var hash = reader.Read<Guid>(NpgsqlDbType.Uuid);
                 var json = reader.Read<byte[]>(NpgsqlDbType.Bytea);
 
-                doc?.Dispose();
+                // doc?.Dispose();
                 
-                // For some reason it starts the returned string with a single 0x01 byte so we gotta trim that off
-                var jr = new Utf8JsonReader(json.AsSpan(1));
-                doc = JsonDocument.ParseValue(ref jr);
+                // var jr = new Utf8JsonReader(json.AsSpan(1));
+                // doc = JsonDocument.ParseValue(ref jr);
 
+                // For some reason it starts the returned string with a single 0x01 byte so we gotta trim that off
                 return new RawObject
                 {
                     Hash = hash,
-                    Data = doc.RootElement,
+                    Data = json
                 };
-            });
+            }, 2500);
             
-            doc?.Dispose();
+            // doc?.Dispose();
         }
 
         private async Task ExportAllUpdates(string filename)
         {
-            await WriteToFile(filename, "updates", reader => new RawUpdate
+            await WriteToFile(filename, "updates(type, timestamp, hash, entity_id, source_id, update_id)", reader => new RawUpdate
             {
                 Type = reader.Read<short>(NpgsqlDbType.Smallint),
-                Timestamp = reader.Read<Instant>(NpgsqlDbType.TimestampTz),
+                Timestamp = reader.Read<DateTimeOffset>(NpgsqlDbType.TimestampTz).UtcDateTime,
                 Hash = reader.Read<Guid>(NpgsqlDbType.Uuid),
                 EntityId = reader.Read<Guid>(NpgsqlDbType.Uuid),
                 SourceId = reader.Read<Guid>(NpgsqlDbType.Uuid),
                 UpdateId = reader.Read<Guid>(NpgsqlDbType.Uuid),
-            });
+            }, 50000);
         }
 
-        private async Task WriteToFile<T>(string filename, string table, Func<NpgsqlBinaryExporter, T> mapper)
+        private async Task WriteToFile<T>(string filename, string table, Func<NpgsqlBinaryExporter, T> mapper, int bufSize)
         {
             _logger.Information("Exporting from {Table} to {Filename}...", table, filename);
             
@@ -137,63 +132,60 @@ namespace SIBR.Storage.CLI.Export
             await using var reader = conn.BeginBinaryExport($"copy {table} to stdout (format binary)");
 
             await using var file = File.Open(filename, FileMode.Create, FileAccess.Write);
-            await using var gz = new GZipStream(file, CompressionLevel.Optimal);
-
+            // await using var gz = new GZipStream(file, CompressionLevel.Optimal);
+            
             var rows = 0;
+
+            var buf = new List<T>();
             while (await reader.StartRowAsync() > -1)
             {
-                if (rows % 10000 == 0) 
+                if (buf.Count >= bufSize)
+                {
                     _logger.Information("Writing to {Filename} ({Rows} so far)", filename, rows);
 
-                await using (var writer = new Utf8JsonWriter(gz))
-                    JsonSerializer.Serialize(writer, mapper(reader), _opts);
-                gz.WriteByte(0x0a);
+                    if (buf.Count > 0)
+                    {
+                        await MessagePackSerializer.SerializeAsync(file, buf, _opts);
+                        buf.Clear();
+                    }
+                }
+
+                var obj = mapper(reader);
+                buf.Add(obj);
 
                 rows++;
+            }
+            
+            if (buf.Count > 0)
+            {
+                await MessagePackSerializer.SerializeAsync(file, buf, _opts);
+                buf.Clear();
             }
             
             _logger.Information("Done exporting {Table}.", table);
         }
 
-        private struct RawUpdate
+        public class MsgpackJsonFormatter : IMessagePackFormatter<string>
         {
-            [JsonPropertyName("ty")] public short Type { get; set; }
-            [JsonPropertyName("t")] public Instant Timestamp { get; set; }
-            [JsonPropertyName("h")] public Guid Hash { get; set; }
-            [JsonPropertyName("e")] public Guid EntityId { get; set; }
-            [JsonPropertyName("s")] public Guid SourceId { get; set; }
-            [JsonPropertyName("id")] public Guid UpdateId { get; set; }
-        }
+            private readonly char[] _tmp = new char[1];
+            
+            public void Serialize(ref MessagePackWriter writer, string value, MessagePackSerializerOptions options)
+            {
+                using var sr = new StringReader(value);
+                
+                // Skip first broken byte
+                if (value[0] == '\x01')
+                    sr.Read(_tmp, 0, 1);
+                
+                MessagePackSerializer.ConvertFromJson(sr, ref writer);
+            }
 
-        private struct RawObject
-        {
-            [JsonPropertyName("h")] public Guid Hash { get; set; }
-            [JsonPropertyName("d")] public JsonElement Data { get; set; }
-        }
-
-        private struct RawBinaryObject
-        {
-            [JsonPropertyName("h")] public Guid Hash { get; set; }
-            [JsonPropertyName("d")] public string Data { get; set; }
-        }
-
-        private struct RawGameUpdate
-        {
-            [JsonPropertyName("t")] public Instant Timestamp { get; set; }
-            [JsonPropertyName("g")] public Guid GameId { get; set; }
-            [JsonPropertyName("h")] public Guid Hash { get; set; }
-            [JsonPropertyName("s")] public Guid SourceId { get; set; }
-            [JsonPropertyName("gs")] public short Season { get; set; }
-            [JsonPropertyName("gd")] public short Day { get; set; }
-        }
-
-        private struct RawSiteUpdate
-        {
-            [JsonPropertyName("t")] public Instant Timestamp { get; set; }
-            [JsonPropertyName("p")] public string Path { get; set; }
-            [JsonPropertyName("h")] public Guid Hash { get; set; }
-            [JsonPropertyName("s")] public Guid SourceId { get; set; }
-            [JsonPropertyName("lm")] public Instant? LastModified { get; set; }
+            public string Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
+            {
+                using var sw = new StringWriter();
+                MessagePackSerializer.ConvertToJson(ref reader, sw);
+                return sw.ToString();
+            }
         }
     }
 }

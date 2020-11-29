@@ -6,7 +6,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
@@ -58,7 +57,8 @@ namespace SIBR.Storage.CLI.Export
                 ExportByEntityId(opts, UpdateType.Subleague, Path.Join(opts.OutDir, "league", "subleagues")),
                 ExportByEntityId(opts, UpdateType.Division, Path.Join(opts.OutDir, "league", "divisions")),
                 ExportByEntityId(opts, UpdateType.Standings, Path.Join(opts.OutDir, "league", "standings")),
-                ExportByEntityId(opts, UpdateType.Tiebreakers, Path.Join(opts.OutDir, "league", "tiebreakers"))
+                ExportByEntityId(opts, UpdateType.Tiebreakers, Path.Join(opts.OutDir, "league", "tiebreakers")),
+                ExportByEntityId(opts, UpdateType.Tournament, Path.Join(opts.OutDir, "league", "tournaments"))
             );
 
             await Task.WhenAll(
@@ -67,11 +67,18 @@ namespace SIBR.Storage.CLI.Export
                 ExportByEntityId(opts, UpdateType.TeamStatsheet, Path.Join(opts.OutDir, "statsheets", "team")),
                 ExportByEntityId(opts, UpdateType.PlayerStatsheet, Path.Join(opts.OutDir, "statsheets", "player"))
             );
+
+            await Task.WhenAll(
+                ExportAllByDay(opts, UpdateType.OffseasonSetup, Path.Join(opts.OutDir, "election", "setup-")),
+                ExportByEntityId(opts, UpdateType.OffseasonRecap, Path.Join(opts.OutDir, "election", "recap")),
+                ExportByEntityId(opts, UpdateType.BonusResult, Path.Join(opts.OutDir, "election", "blessing")),
+                ExportByEntityId(opts, UpdateType.DecreeResult, Path.Join(opts.OutDir, "election", "decree")),
+                ExportByEntityId(opts, UpdateType.EventResult, Path.Join(opts.OutDir, "election", "event"))
+            );
             
             await Task.WhenAll(
                 ExportAllByDay(opts, UpdateType.Tributes, Path.Join(opts.OutDir, "tributes", "tributes-")),
                 ExportAllByDay(opts, UpdateType.Idols, Path.Join(opts.OutDir, "idols", "idols-")),
-                ExportAllByDay(opts, UpdateType.OffseasonSetup, Path.Join(opts.OutDir, "election", "offseasonsetup-")),
                 ExportAllByDay(opts, UpdateType.GlobalEvents, Path.Join(opts.OutDir, "globalevents", "globalevents-")),
                 ExportAll(opts, UpdateType.Sim, Path.Join(opts.OutDir, "sim", "sim.json")),
                 ExportAll(opts, UpdateType.Temporal, Path.Join(opts.OutDir, "sim", "temporal.json"))
@@ -99,8 +106,11 @@ namespace SIBR.Storage.CLI.Export
             {
                 await Task.Yield();
 
-                var (season, day) = (((IGameData) game).Season, ((IGameData) game).Day);
-                var filename = Path.Join(outDir, $"season{season}", $"day{day}", $"{game.GameId}.json");
+                var data = (IGameData) game;
+
+                var filename = data.Season != -1
+                    ? Path.Join(outDir, $"season{data.Season}", $"day{data.Day}", $"{game.GameId}.json")
+                    : Path.Join(outDir, $"tournament{data.Tournament}", $"day{data.Day}", $"{game.GameId}.json");
 
                 var updates = _gameUpdateStore.GetGameUpdates(new GameUpdateStore.GameUpdateQueryOptions
                 {
@@ -108,7 +118,7 @@ namespace SIBR.Storage.CLI.Export
                 });
 
                 _logger.Information("Writing game {GameId} (Season {Season} Day {Day}) to {Filename}", game.GameId,
-                    season, day, filename);
+                    data.Season, data.Day, filename);
                 await WriteValues(opts, updates.Select(ToFileGameUpdate), filename);
             }).Buffer(20);
 

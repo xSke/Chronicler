@@ -63,7 +63,7 @@ namespace SIBR.Storage.CLI
             };
         }
 
-        public override async Task Run(S3ImportOptions options)
+        public override async Task Run(ImportOptions options)
         {
             await base.Run(options);
             

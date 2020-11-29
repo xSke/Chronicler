@@ -1,6 +1,6 @@
 ﻿namespace SIBR.Storage.CLI.Import
 {
-    public class S3ImportOptions
+    public class ImportOptions
     {
         public string Directory { get; set; }
     }

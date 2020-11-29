@@ -12,19 +12,13 @@ using Serilog;
 
 namespace SIBR.Storage.CLI.Import
 {
-    public abstract class S3FileImporter
+    public abstract class S3FileImporter: FileImporter
     {
-        protected readonly ILogger _logger;
         protected string FileFilter = "*";
-        
-        protected S3FileImporter(IServiceProvider services)
-        {
-            _logger = services.GetRequiredService<ILogger>().ForContext(GetType());
-        }
 
         protected abstract Task ProcessFile(string filename, IAsyncEnumerable<JToken> entries);
 
-        public virtual async Task Run(S3ImportOptions options)
+        public override async Task Run(ImportOptions options)
         {
             _logger.Information("Importing data files from from {Directory}", options.Directory);
 
@@ -94,6 +88,10 @@ namespace SIBR.Storage.CLI.Import
             if (match.Success)
                 return Instant.FromUnixTimeMilliseconds(long.Parse(match.Groups[1].Value));
             return null;
+        }
+
+        protected S3FileImporter(IServiceProvider services) : base(services)
+        {
         }
     }
 }

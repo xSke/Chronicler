@@ -9,6 +9,7 @@ using Microsoft.Extensions.FileProviders;
 using NodaTime;
 using SIBR.Storage.CLI.Export;
 using SIBR.Storage.CLI.Import;
+using SIBR.Storage.CLI.Utils;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
 using SIBR.Storage.Ingest;
@@ -20,11 +21,11 @@ namespace SIBR.Storage.CLI
         [Verb("import")]
         public class ImportCmd
         {
+            [Option("source")] public Guid? SourceId { get; set; }
+
             [Value(0, MetaName = "type")] public string Type { get; set; }
-
-            [Value(1, MetaName = "sourceid")] public Guid SourceId { get; set; }
-
-            [Value(2, MetaName = "directory", HelpText = "The directory to read log files from")]
+            
+            [Value(1, MetaName = "directory", HelpText = "The directory to read log files from")]
             public string Directory { get; set; }
         }
 
@@ -97,6 +98,7 @@ namespace SIBR.Storage.CLI
                 .AddSingleton<StreamReplay>()
                 .AddSingleton<SQLiteExport>()
                 .AddSingleton<RawExport>()
+                .AddMessagePackSettings()
                 .BuildServiceProvider();
 
             var result = Parser.Default
@@ -156,15 +158,17 @@ namespace SIBR.Storage.CLI
 
         private static async Task HandleImport(IServiceProvider services, ImportCmd opts)
         {
-            S3FileImporter importer = opts.Type switch
+            FileImporter importer = opts.Type switch
             {
-                "hourly" => new HourlyLogsImporter(services, opts.SourceId),
-                "gamelogs" => new GameLogsImporter(services, opts.SourceId),
-                "idols" => new IdolLogsImporter(services, opts.SourceId),
-                "mongotributes" => new MongodbTributesImporter(services, opts.SourceId),
+                "hourly" => new HourlyLogsImporter(services, opts.SourceId ?? throw new ArgumentException("Source ID is required")),
+                "gamelogs" => new GameLogsImporter(services, opts.SourceId ?? throw new ArgumentException("Source ID is required")),
+                "idols" => new IdolLogsImporter(services, opts.SourceId ?? throw new ArgumentException("Source ID is required")),
+                "mongotributes" => new MongodbTributesImporter(services, opts.SourceId ?? throw new ArgumentException("Source ID is required")),
+                "raw" => new RawImporter(services),
                 _ => throw new ArgumentException($"Unknown import type {opts.Type}")
             };
-            await importer.Run(new S3ImportOptions
+            
+            await importer.Run(new ImportOptions
             {
                 Directory = opts.Directory
             });

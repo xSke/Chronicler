@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Globalization;
 using System.Text.Json;
+using MessagePack;
+using MessagePack.Resolvers;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace SIBR.Storage.CLI.Utils
 {
@@ -13,5 +16,14 @@ namespace SIBR.Storage.CLI.Utils
         public static string NullIfEmpty(this string value) => string.IsNullOrEmpty(value) ? null : value;
 
         public static string ParseHexEmoji(this string emoji) => char.ConvertFromUtf32(Convert.ToInt32(emoji, 16));
+
+        public static IServiceCollection AddMessagePackSettings(this IServiceCollection services) =>
+            services.AddSingleton(MessagePackSerializerOptions.Standard
+                .WithCompression(MessagePackCompression.Lz4BlockArray)
+                .WithResolver(CompositeResolver.Create(
+                    NativeGuidResolver.Instance,
+                    NativeDateTimeResolver.Instance,
+                    StandardResolver.Instance
+                )));
     }
 }
