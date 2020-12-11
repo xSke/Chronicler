@@ -70,8 +70,11 @@ namespace SIBR.Storage.CLI
             [Option("type")]
             public UpdateType? Type { get; set; }
             
-            [Option("after")]
-            public DateTimeOffset? After { get; set; }
+            [Option("start")]
+            public DateTimeOffset? Start { get; set; }
+            
+            [Option("end")]
+            public DateTimeOffset? End { get; set; }
         }
 
         static async Task Main(string[] args)
@@ -152,7 +155,8 @@ namespace SIBR.Storage.CLI
             await services.GetRequiredService<StreamReplay>().Run(new StreamReplay.ReplayOptions
             {
                 Type = opts.Type,
-                After = opts.After != null ? Instant.FromDateTimeOffset(opts.After.Value) : (Instant?) null
+                Start = opts.Start != null ? Instant.FromDateTimeOffset(opts.Start.Value) : (Instant?) null,
+                End = opts.End != null ? Instant.FromDateTimeOffset(opts.End.Value) : (Instant?) null
             });
         }
 

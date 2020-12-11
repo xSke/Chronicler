@@ -14,23 +14,26 @@ namespace SIBR.Storage.CLI
     public class StreamReplay
     {
         private readonly UpdateStore _updateStore;
+        private readonly GameUpdateStore _gameUpdateStore;
         private readonly Database _db;
         private readonly ILogger _logger;
 
-        public StreamReplay(UpdateStore updateStore, Database db, ILogger logger)
+        public StreamReplay(UpdateStore updateStore, Database db, ILogger logger, GameUpdateStore gameUpdateStore)
         {
             _updateStore = updateStore;
             _db = db;
+            _gameUpdateStore = gameUpdateStore;
             _logger = logger.ForContext<StreamReplay>();
         }
 
         public async Task Run(ReplayOptions opts)
         {
-            _logger.Information("Starting replay (type: {Type}, after: {After})", opts.Type, opts.After);
+            _logger.Information("Starting replay (type: {Type}, start: {Start}, end: {End})", opts.Type, opts.Start, opts.End);
             
             using var hasher = new SibrHasher();
             var updates = _updateStore.ExportAllUpdatesRaw(UpdateType.Stream, new UpdateStore.EntityVersionQuery {
-                After = opts.After
+                After = opts.Start,
+                Before = opts.End
             });
 
             var sw = new Stopwatch();
@@ -38,28 +41,51 @@ namespace SIBR.Storage.CLI
             await using var conn = await _db.Obtain();
             await foreach (var chunk in updates.Buffer(200))
             {
-                var extracted = chunk.SelectMany(streamUpdate =>
+                if (opts.Type == UpdateType.Game)
                 {
-                    var obj = JObject.Parse(streamUpdate.Data.GetRawText());
-                    return TgbUtils.ExtractUpdatesFromStreamRoot(streamUpdate.SourceId, streamUpdate.Timestamp, obj, hasher, opts.Type).EntityUpdates;
-                }).ToList();
-                
-                sw.Restart();
-                await using var tx = await conn.BeginTransactionAsync();
-                var saved = await _updateStore.SaveUpdates(conn, extracted, false);
-                await tx.CommitAsync();
-                sw.Stop();
+                    var extractedGameUpdates = chunk.SelectMany(streamUpdate =>
+                    {
+                        var obj = JObject.Parse(streamUpdate.Data.GetRawText());
+                        return TgbUtils.ExtractUpdatesFromStreamRoot(streamUpdate.SourceId, streamUpdate.Timestamp, obj, hasher, opts.Type).GameUpdates;
+                    }).ToList();
 
-                var timestamp = chunk.Min(u => u.Timestamp);
-                _logger.Information("@ {Timestamp}: Saved {NewUpdateCount}/{UpdateCount} updates from {StreamObjects} stream objects (took {Duration})",
-                    timestamp, saved, extracted.Count, chunk.Count, sw.Elapsed);
+                    sw.Restart();
+                    await using var tx = await conn.BeginTransactionAsync();
+                    var savedGameUpdates = await _gameUpdateStore.SaveGameUpdates(conn, extractedGameUpdates, false);
+                    await tx.CommitAsync();
+                    sw.Stop();
+
+                    var timestamp = chunk.Min(u => u.Timestamp);
+                    _logger.Information("@ {Timestamp}: Saved {GameUpdateCount}/{UpdateCount} game updates from {StreamObjects} stream objects (took {Duration})",
+                        timestamp, savedGameUpdates, extractedGameUpdates.Count, chunk.Count, sw.Elapsed);
+                }
+                else
+                {
+                    var extractedUpdates = chunk.SelectMany(streamUpdate =>
+                    {
+                        var obj = JObject.Parse(streamUpdate.Data.GetRawText());
+                        return TgbUtils.ExtractUpdatesFromStreamRoot(streamUpdate.SourceId, streamUpdate.Timestamp, obj,
+                            hasher, opts.Type).EntityUpdates;
+                    }).ToList();
+                    
+                    sw.Restart();
+                    await using var tx = await conn.BeginTransactionAsync();
+                    var savedUpdates = await _updateStore.SaveUpdates(conn, extractedUpdates, false);
+                    await tx.CommitAsync();
+                    sw.Stop();
+
+                    var timestamp = chunk.Min(u => u.Timestamp);
+                    _logger.Information("@ {Timestamp}: Saved {NewUpdateCount}/{UpdateCount} updates from {StreamObjects} stream objects (took {Duration})",
+                        timestamp, savedUpdates, extractedUpdates.Count, chunk.Count, sw.Elapsed);
+                }
             }
         }
 
         public class ReplayOptions
         {
             public UpdateType? Type { get; set; }
-            public Instant? After { get; set; }
+            public Instant? Start { get; set; }
+            public Instant? End { get; set; }
         }
     }
 }
