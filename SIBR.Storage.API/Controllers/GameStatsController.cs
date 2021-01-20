@@ -51,6 +51,7 @@ namespace SIBR.Storage.API.Controllers
                 new ApiGameStats
                 {
                     GameId = game.GameId,
+                    Timestamp = gameStats.Timestamp,
                     GameStats = gameStats.Data,
                     TeamStats = teamStats.Select(v => v.Data).ToArray(),
                     PlayerStats = playerStats.Select(v => v.Data).ToArray(),
