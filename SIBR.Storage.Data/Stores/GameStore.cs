@@ -25,6 +25,7 @@ namespace SIBR.Storage.Data
             else
                 q.OrderBy("season", "tournament", "day");
 
+            if (opts.GameId != null) q.Where("game_id", opts.GameId.Value);
             if (opts.Season != null) q.Where("season", opts.Season.Value);
             if (opts.Tournament != null) q.Where("tournament", opts.Tournament.Value);
             if (opts.Day != null) q.Where("day", opts.Day.Value);
@@ -43,6 +44,7 @@ namespace SIBR.Storage.Data
         
         public class GameQueryOptions
         {
+            public Guid? GameId;
             public int? Tournament;
             public int? Season;
             public int? Day;

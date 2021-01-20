@@ -18,6 +18,7 @@ create view games_view as
         (jsonb_array_length(data->'outcomes') > 0) as has_outcomes,
         (data->>'gameStart')::bool as has_started,
         (data->>'gameComplete')::bool as has_finished,
+        (data->>'statsheet')::uuid as statsheet,
         (data->>'homeTeam')::uuid as home_team,
         (data->>'awayTeam')::uuid as away_team,
         (data->>'homePitcher')::uuid as home_pitcher,
