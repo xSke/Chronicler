@@ -36,7 +36,9 @@ namespace SIBR.Storage.API.Controllers
             var game = await _gameStore.GetGames(new GameStore.GameQueryOptions { GameId = opts.Game, Count = 1 }).FirstAsync();
             var cutoff = CutoffTime(game.EndTime);
 
-            var gameStats = await GetVersion(UpdateType.GameStatsheet, new [] { game.Statsheet }, cutoff).FirstAsync();
+            var gameStats = await GetVersion(UpdateType.GameStatsheet, new [] { game.Statsheet }, cutoff).FirstOrDefaultAsync();
+            if (gameStats is null)
+                return Ok(new ApiResponse<ApiGameStats>() { Data = new ApiGameStats[] {} });
 
             var teamSheets = new [] { gameStats.Data.GetProperty("awayTeamStats").GetGuid(), gameStats.Data.GetProperty("homeTeamStats").GetGuid() };
             var teamStats = await GetVersion(UpdateType.TeamStatsheet, teamSheets, cutoff).ToListAsync();
@@ -44,7 +46,7 @@ namespace SIBR.Storage.API.Controllers
             var playerSheets = teamStats.SelectMany(sheet => sheet.Data.GetProperty("playerStats").EnumerateArray().Select(el => el.GetGuid()));
             var playerStats = await GetVersion(UpdateType.PlayerStatsheet, playerSheets.ToArray(), cutoff).ToListAsync();
 
-            return Ok(new ApiResponse<ApiGameStats>() { Data = new []
+            return Ok(new ApiResponse<ApiGameStats>() { Data = new ApiGameStats[]
             {
                 new ApiGameStats
                 {
