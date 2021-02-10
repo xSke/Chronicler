@@ -20,6 +20,15 @@ namespace SIBR.Storage.Ingest
         private readonly Database _db;
         private readonly IClock _clock;
 
+        private const string Index = "https://www.blaseball.com/";
+        private static readonly string[] AllowedPrefixes =
+        {
+            "/", 
+            "https://www.blaseball.com/", 
+            "https://blaseball.com/",
+            "https://d35iw2jmbg6ut8.cloudfront.net/"
+        };
+
         public SiteUpdateWorker(IServiceProvider services, IntervalWorkerConfiguration config, Guid sourceId) :
             base(services, config)
         {
@@ -32,12 +41,12 @@ namespace SIBR.Storage.Ingest
 
         protected override async Task RunInterval()
         {
-            var index = await FetchResource("/");
+            var index = await FetchResource(new Uri(Index));
             if (index == null)
                 return;
-            
-            var resources = await Task.WhenAll(ExtractResourcePathsFromPage(index)
-                .Select(FetchResource));
+
+            var resourcePaths = ExtractResourcePathsFromPage(index);
+            var resources = await Task.WhenAll(resourcePaths.Select(FetchResource));
             
             await using var conn = await _db.Obtain();
             await using var tx = await conn.BeginTransactionAsync();
@@ -45,7 +54,7 @@ namespace SIBR.Storage.Ingest
             await tx.CommitAsync();
         }
 
-        private IEnumerable<string> ExtractResourcePathsFromPage(SiteUpdate index)
+        private IEnumerable<Uri> ExtractResourcePathsFromPage(SiteUpdate index)
         {
             var doc = new HtmlDocument();
             doc.LoadHtml(Encoding.UTF8.GetString(index.Data));
@@ -53,17 +62,17 @@ namespace SIBR.Storage.Ingest
             return doc.DocumentNode.SelectNodes("//script/@src | //link[@rel='stylesheet']/@href")
                 .Select(node => node.GetAttributeValue("src", null) ?? node.GetAttributeValue("href", null))
                 .Where(s => s != null)
-                // Exclude google ads and stuff, only local/relative paths
-                .Where(s => s.StartsWith("/"))
+                .Where(s => AllowedPrefixes.Any(s.StartsWith))
+                .Select(ParseRelativeUri)
                 .ToArray();
         }
 
-        private async Task<SiteUpdate> FetchResource(string path)
+        private async Task<SiteUpdate> FetchResource(Uri uri)
         {
-            var response = await _client.GetAsync(new Uri(new Uri("https://www.blaseball.com/"), path));
+            var response = await _client.GetAsync(uri);
             if (!response.IsSuccessStatusCode)
             {
-                _logger.Warning("Got {StatusCode} response from {Path}, returning null", response.StatusCode, path);
+                _logger.Warning("Got {StatusCode} response from {Url}, returning null", response.StatusCode, uri);
                 return null;
             }
 
@@ -74,9 +83,19 @@ namespace SIBR.Storage.Ingest
                 ? Instant.FromDateTimeOffset(lastModifiedDto.Value)
                 : (Instant?) null;
 
+            var path = uri.AbsolutePath;
             var update = SiteUpdate.From(_sourceId, path, _clock.GetCurrentInstant(), bytes, lastModified);
-            _logger.Information("- Fetched resource {Path} (hash {Hash})", path, update.Hash);
+            _logger.Information("- Fetched resource {Path} (hash {Hash})", uri, update.Hash);
             return update;
+        }
+
+        private Uri ParseRelativeUri(string url)
+        {
+            var uri = new Uri(url, UriKind.RelativeOrAbsolute);
+            if (uri.IsAbsoluteUri)
+                return uri;
+            
+            return new Uri(new Uri("https://www.blaseball.com/"), url);
         }
     }
 }
