@@ -20,10 +20,12 @@ namespace SIBR.Storage.Ingest
         private readonly GameUpdateStore _gameStore;
         private readonly UpdateStore _updateStore;
         private readonly IClock _clock;
+        private readonly int _streamCount;
         private readonly Guid _sourceId;
 
-        public StreamDataWorker(IServiceProvider services, Guid sourceId) : base(services)
+        public StreamDataWorker(IServiceProvider services, int streamCount, Guid sourceId) : base(services)
         {
+            _streamCount = streamCount > 0 ? streamCount : 1;
             _sourceId = sourceId;
             _clock = services.GetRequiredService<IClock>();
             _updateStore = services.GetRequiredService<UpdateStore>();
@@ -46,16 +48,18 @@ namespace SIBR.Storage.Ingest
             var extracted = TgbUtils.ExtractUpdatesFromStreamRoot(_sourceId, timestamp, data, hasher);
             var gameRes = await _gameStore.SaveGameUpdates(conn, extracted.GameUpdates);
             var miscRes = await _updateStore.SaveUpdates(conn, extracted.EntityUpdates);
+
+            var maxPlayCount = extracted.GameUpdates.Count > 0 ? extracted.GameUpdates.Max(gu => gu.PlayCount) : -1;
             
-            _logger.Information("Received stream update, saved {GameUpdates} game updates, {MiscUpdates} updates", 
-                gameRes, miscRes);
+            _logger.Information("Received stream update, saved {GameUpdates} game updates, {MiscUpdates} updates, max PC {MaxPlayCount}", 
+                gameRes, miscRes, maxPlayCount);
             
             await tx.CommitAsync();
         }
-        
-        protected override async Task Run()
+
+        protected async Task RunStreamDataConsumer(int index)
         {
-            _logger.Information("Starting stream data consumer");
+            _logger.Information("Starting stream data consumer {StreamIndex}", index);
             await _eventStream.OpenStream("https://www.blaseball.com/events/streamData", async (data) =>
             {
                 try
@@ -67,6 +71,14 @@ namespace SIBR.Storage.Ingest
                     _logger.Error(e, "Error while processing stream data");
                 }
             });
+        }
+        
+        protected override async Task Run()
+        {
+            var tasks = new List<Task>();
+            for (var i = 0; i < _streamCount; i++)
+                tasks.Add(RunStreamDataConsumer(i));
+            await Task.WhenAll(tasks);
         }
     }
 }

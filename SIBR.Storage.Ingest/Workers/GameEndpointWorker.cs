@@ -63,19 +63,22 @@ namespace SIBR.Storage.Ingest
         {
             var sw = new Stopwatch();
             sw.Start();
-            
+
+            var cacheBust = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
             var url = tournament >= 0
-                ? $"https://www.blaseball.com/database/games?tournament={tournament}&day={day}"
-                : $"https://www.blaseball.com/database/games?season={season}&day={day}";
+                ? $"https://www.blaseball.com/database/games?tournament={tournament}&day={day}&cache={cacheBust}"
+                : $"https://www.blaseball.com/database/games?season={season}&day={day}&cache={cacheBust}";
             var jsonStr  = await _client.GetStringAsync(url);
             
             sw.Stop();
             var timestamp = _clock.GetCurrentInstant();
 
             var json = JArray.Parse(jsonStr);
-            _logger.Information("Polled games endpoint at season {Season} tournament {Tournament} day {Day} (combined hash {Hash}, took {Duration})",
+            var maxPlayCount = json.Max(t => t["playCount"].Value<int>());
+            _logger.Information("Polled games endpoint at season {Season} tournament {Tournament} day {Day} (combined hash {Hash}, max PC {MaxPlayCount}, took {Duration})",
                 season, tournament,
-                day, SibrHash.HashAsGuid(json), sw.Elapsed);
+                day, SibrHash.HashAsGuid(json), maxPlayCount, sw.Elapsed);
             
             var updates = json
                 .Select(game => GameUpdate.From(_sourceId, timestamp, game))

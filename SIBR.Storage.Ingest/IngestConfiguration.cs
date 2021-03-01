@@ -7,6 +7,7 @@ namespace SIBR.Storage.Ingest
     public class IngestConfiguration
     {
         public Guid SourceId { get; set; }
+        public int StreamCount { get; set; }
         public IntervalWorkerConfiguration FutureGamesWorker { get; set; }
         public IntervalWorkerConfiguration GameEndpointWorker { get; set; }
         public List<MiscEndpointWorkerConfiguration> MiscEndpointWorkers { get; set; }
