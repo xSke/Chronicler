@@ -30,6 +30,7 @@
         Playoffs = 27,
         PlayoffRound = 28,
         PlayoffMatchup = 29,
-        Tournament = 30
+        Tournament = 30,
+        Stadium = 31
     }
 }

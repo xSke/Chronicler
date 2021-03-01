@@ -70,7 +70,8 @@ namespace SIBR.Storage.Data.Utils
                 (UpdateType.Division, "value.leagues.divisions[*]"),
                 (UpdateType.Tiebreakers, "value.leagues.tiebreakers[*]"),
                 (UpdateType.Temporal, "value.temporal"),
-                (UpdateType.Bossfight, "value.fights.bossFights[*]")
+                (UpdateType.Bossfight, "value.fights.bossFights[*]"),
+                (UpdateType.Stadium, "value.leagues.stadiums[*]")
             ));
 
             if (root["value"]?["games"]?["schedule"] is JArray schedule)
