@@ -104,7 +104,7 @@ namespace SIBR.Storage.Ingest
             {
                 var statsheetsJson =
                     await _client.GetStringAsync(
-                        $"https://www.blaseball.com/database/playerSeasonStats?ids={string.Join(',', chunk)}");
+                        $"https://www.blaseball.com/database/playerStatsheets?ids={string.Join(',', chunk)}");
                 var statsheetsObjs = JArray.Parse(statsheetsJson);
                 sheets.AddRange(statsheetsObjs);
             }
