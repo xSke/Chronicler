@@ -19,7 +19,8 @@ namespace SIBR.Storage.Ingest
                 .AddSingleton<StreamDataWorker>()
                 .AddSingleton<TeamPlayerDataWorker>()
                 .AddSingleton<SiteUpdateWorker>()
-                .AddSingleton<GameEndpointWorker>();
+                .AddSingleton<GameEndpointWorker>()
+                .AddSingleton<FeedWorker>();
         }
     }
 }

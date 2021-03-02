@@ -7,6 +7,7 @@ namespace SIBR.Storage.Ingest
     public abstract class IntervalWorker : BaseWorker
     {
         protected TimeSpan Interval { get; set; }
+        protected bool Blocking { get; set; }
         private readonly TimeSpan _offset;
 
         protected IntervalWorker(IServiceProvider services, IntervalWorkerConfiguration config) : base(services)
@@ -38,7 +39,9 @@ namespace SIBR.Storage.Ingest
                     }
                 }
 
-                var _ = Inner();
+                var workerTask = Inner();
+                if (Blocking)
+                    await workerTask;
 
                 // in case times are a bit off and we end up still within the same window
                 await Task.Delay(TimeSpan.FromMilliseconds(10));

@@ -16,7 +16,8 @@ namespace SIBR.Storage.Ingest
                 new FutureGamesWorker(services, config.FutureGamesWorker, config.SourceId),
                 new StatsheetsWorker(services, config.StatsheetsWorker, config.SourceId),
                 new ElectionResultsWorker(services, config.ElectionResultsWorker, config.SourceId),
-                new StreamDataWorker(services, config.StreamCount, config.SourceId)
+                new StreamDataWorker(services, config.StreamCount, config.SourceId),
+                new FeedWorker(services, config.FeedWorker)
             };
             workers.AddRange(config.MiscEndpointWorkers.Select(workerConfig => new MiscEndpointWorker(services, workerConfig, config.SourceId)));
             return workers;
