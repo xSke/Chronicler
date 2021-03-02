@@ -57,7 +57,7 @@ namespace SIBR.Storage.Ingest
             await tx.CommitAsync();
         }
 
-        protected async Task RunStreamDataConsumer(int index)
+        private async Task RunStreamDataConsumer(int index)
         {
             _logger.Information("Starting stream data consumer {StreamIndex}", index);
             await _eventStream.OpenStream("https://www.blaseball.com/events/streamData", async (data) =>
@@ -77,7 +77,11 @@ namespace SIBR.Storage.Ingest
         {
             var tasks = new List<Task>();
             for (var i = 0; i < _streamCount; i++)
+            {
                 tasks.Add(RunStreamDataConsumer(i));
+                await Task.Delay(TimeSpan.FromMilliseconds(1000));
+            }
+
             await Task.WhenAll(tasks);
         }
     }
