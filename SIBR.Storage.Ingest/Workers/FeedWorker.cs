@@ -50,6 +50,9 @@ namespace SIBR.Storage.Ingest
                     if (feedItems.Count == 0)
                         break;
 
+                    if (feedItems.Count == 1 && feedItems.First().Id == lastItem?.Id)
+                        break;
+
                     await _feedStore.SaveFeedItems(conn, feedItems);
 
                     await tx.CommitAsync();
