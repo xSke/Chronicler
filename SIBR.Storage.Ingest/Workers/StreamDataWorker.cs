@@ -15,6 +15,8 @@ namespace SIBR.Storage.Ingest
 {
     public class StreamDataWorker : BaseWorker
     {
+        private static readonly TimeSpan ConnectionStagger = TimeSpan.FromSeconds(1.5);
+        
         private readonly EventStream _eventStream;
         private readonly Database _db;
         private readonly GameUpdateStore _gameStore;
@@ -59,8 +61,8 @@ namespace SIBR.Storage.Ingest
 
         private async Task RunStreamDataConsumer(int index)
         {
-            _logger.Information("Starting stream data consumer {StreamIndex}", index);
-            await _eventStream.OpenStream("https://www.blaseball.com/events/streamData", async (data) =>
+            _logger.Information("Starting stream data consumer #{StreamIndex}", index);
+            await _eventStream.OpenStream("https://www.blaseball.com/events/streamData", index, async (data) =>
             {
                 try
                 {
@@ -79,7 +81,7 @@ namespace SIBR.Storage.Ingest
             for (var i = 0; i < _streamCount; i++)
             {
                 tasks.Add(RunStreamDataConsumer(i));
-                await Task.Delay(TimeSpan.FromMilliseconds(1000));
+                await Task.Delay(ConnectionStagger);
             }
 
             await Task.WhenAll(tasks);
