@@ -108,7 +108,7 @@ function tryExtractWeather(path) {
 
 module.exports = {
     stripBase64Blocks(text) {
-        return text.replace(/data:([a-z-\/]+);base64,[A-Za-z0-9+\/]+/g, "<$1 blob>");
+        return text.replace(/data:([a-z-\/]+);base64,[A-Za-z0-9=+\/]+/g, "<$1 blob>");
     },
     inlineJsonParse(ast) {
         traverse(ast, {
