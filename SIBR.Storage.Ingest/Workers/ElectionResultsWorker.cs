@@ -17,7 +17,7 @@ namespace SIBR.Storage.Ingest
     public class ElectionResultsWorker: IntervalWorker
     {
         private readonly Guid _sourceId;
-        private readonly ElectionResultsConfiguration _config;
+        private readonly ThrottledIntervalWorkerConfiguration _config;
         private readonly HttpClient _client;
         private readonly Database _db;
         private readonly UpdateStore _updateStore;
@@ -26,7 +26,7 @@ namespace SIBR.Storage.Ingest
         private int _lastResultsSeason = -1;
         private Instant _lastResultsTime = Instant.MinValue;
 
-        public ElectionResultsWorker(IServiceProvider services, ElectionResultsConfiguration config, Guid sourceId) : base(services, config)
+        public ElectionResultsWorker(IServiceProvider services, ThrottledIntervalWorkerConfiguration config, Guid sourceId) : base(services, config)
         {
             _sourceId = sourceId;
             _config = config;

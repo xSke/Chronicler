@@ -31,6 +31,7 @@
         PlayoffRound = 28,
         PlayoffMatchup = 29,
         Tournament = 30,
-        Stadium = 31
+        Stadium = 31,
+        RenovationProgress = 32
     }
 }

@@ -15,7 +15,8 @@ namespace SIBR.Storage.Ingest
         public IntervalWorkerConfiguration SiteUpdateWorker { get; set; }
         public IntervalWorkerConfiguration StatsheetsWorker { get; set; }
         public IntervalWorkerConfiguration TeamPlayerWorker { get; set; }
-        public ElectionResultsConfiguration ElectionResultsWorker { get; set; }
+        public ThrottledIntervalWorkerConfiguration RenovationsWorker { get; set; }
+        public ThrottledIntervalWorkerConfiguration ElectionResultsWorker { get; set; }
     }
 
     public class IntervalWorkerConfiguration
@@ -24,7 +25,7 @@ namespace SIBR.Storage.Ingest
         public TimeSpan Offset { get; set; }
     }
 
-    public class ElectionResultsConfiguration: IntervalWorkerConfiguration
+    public class ThrottledIntervalWorkerConfiguration: IntervalWorkerConfiguration
     {
         public TimeSpan ThrottleInterval { get; set; }
     }
