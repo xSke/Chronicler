@@ -5,6 +5,7 @@ namespace SIBR.Storage.Data
     public class DataSources
     {
         public static readonly Guid IlianaS3 = new Guid("e007e189-0f89-4965-bc6a-3d8d4f1cb8fb");
+        public static readonly Guid IlianaS3V2 = new Guid("0956c012-d552-4630-b690-5a1eaf7ce41d");
         public static readonly Guid ReblaseServer = new Guid("7f212933-4414-4825-bc75-340d8d3ba2de");
         public static readonly Guid ReblaseAstridLocal = new Guid("4cd154b6-edec-48e8-b429-bd3a1e212d47");
         public static readonly Guid ImmaterialServer = new Guid("b7a2f88f-1945-427b-b435-082af9c4d48e");

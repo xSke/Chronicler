@@ -169,6 +169,7 @@ namespace SIBR.Storage.CLI
                 "idols" => new IdolLogsImporter(services, opts.SourceId ?? throw new ArgumentException("Source ID is required")),
                 "mongotributes" => new MongodbTributesImporter(services, opts.SourceId ?? throw new ArgumentException("Source ID is required")),
                 "raw" => new RawImporter(services),
+                "v2" => new IlianaV2Importer(services, opts.SourceId ?? throw new ArgumentException("Source ID is required")),
                 _ => throw new ArgumentException($"Unknown import type {opts.Type}")
             };
             

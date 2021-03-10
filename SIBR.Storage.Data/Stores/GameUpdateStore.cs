@@ -105,6 +105,7 @@ insert into game_updates_unique (hash, game_id, timestamp, data, season, tournam
         {
             _logger.Information("Updating search index...");
             var sw = new Stopwatch();
+            sw.Start();
             await conn.ExecuteAsync(
                 "update game_updates_unique set search_tsv = to_tsvector('english', data ->> 'lastUpdate') where search_tsv is null");
             sw.Stop();
