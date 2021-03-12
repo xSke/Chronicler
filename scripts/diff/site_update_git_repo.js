@@ -144,11 +144,14 @@ function prettifyAndExtract(text, filename, extract) {
         let data = {};
         const prettified = prettier.format(text, {
             parser(text, { babel }) {
-                const ast = babel(text);
-                extractData.inlineJsonParse(ast);
-                if (extract) data = extractData.extractData(ast);
+                const ast = parser.parse(text);
+                extractData.cleanup(ast);
+                if (extract)
+                    data = extractData.extractData(ast);
+
                 return ast;
             },
+            printWidth: 120
         });
 
         return { text: prettified, data };

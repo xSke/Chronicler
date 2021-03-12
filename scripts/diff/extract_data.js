@@ -1,5 +1,6 @@
 const traverse = require("@babel/traverse").default;
 const t = require("@babel/types");
+const jsxConvert = require("./react_transform");
 
 function isCreateElement(path) {
     if (!path.isCallExpression()) return false;
@@ -110,7 +111,7 @@ module.exports = {
     stripBase64Blocks(text) {
         return text.replace(/data:([a-z-\/]+);base64,[A-Za-z0-9=+\/]+/g, "<$1 blob>");
     },
-    inlineJsonParse(ast) {
+    cleanup(ast) {
         traverse(ast, {
             CallExpression(path) {
                 if (
@@ -121,7 +122,10 @@ module.exports = {
                 ) {
                     const value = path.node.arguments[0].value;
                     replaceWithSourceString(path, value);
+                    return;
                 }
+                
+                jsxConvert.CallExpression(path);
             },
         });
     },
