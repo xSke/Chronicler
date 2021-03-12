@@ -144,7 +144,7 @@ function prettifyAndExtract(text, filename, extract) {
         let data = {};
         const prettified = prettier.format(text, {
             parser(text, { babel }) {
-                const ast = parser.parse(text);
+                const ast = babel(text);
                 extractData.cleanup(ast);
                 if (extract)
                     data = extractData.extractData(ast);
