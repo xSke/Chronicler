@@ -148,7 +148,7 @@ function prettifyAndExtract(text, filename, extract) {
                 extractData.cleanup(ast);
                 if (extract)
                     data = extractData.extractData(ast);
-
+                extractData.transformJsx(ast);
                 return ast;
             },
             printWidth: 120

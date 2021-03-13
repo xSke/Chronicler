@@ -124,10 +124,11 @@ module.exports = {
                     replaceWithSourceString(path, value);
                     return;
                 }
-                
-                jsxConvert.CallExpression(path);
             },
         });
+    },
+    transformJsx(ast) {
+        traverse(ast, jsxConvert);
     },
     extractData(ast) {
         const data = {
