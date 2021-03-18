@@ -31,6 +31,13 @@ namespace SIBR.Storage.Ingest
                     _logger.Information("Stream #{StreamId}: Connecting to stream URL {Url}", streamId, url);
 
                     var response = await _client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        _logger.Error("Stream #{StreamId}: Got non-success status code {StatusCode}, retrying with delay", streamId, response.StatusCode);
+                        await Task.Delay(TimeSpan.FromSeconds(3));
+                        continue;
+                    }
+                    
                     await using var stream = await response.Content.ReadAsStreamAsync();
 
                     _logger.Information("Stream #{StreamId}: Connected to stream, receiving data", streamId);
@@ -61,7 +68,7 @@ namespace SIBR.Storage.Ingest
                 catch (TaskCanceledException)
                 {
                     _logger.Warning("Stream #{StreamId}: Read timed out, reconnecting...", 
-                        streamId, ReadTimeout);
+                        streamId);
                 }
                 catch (Exception e)
                 {
