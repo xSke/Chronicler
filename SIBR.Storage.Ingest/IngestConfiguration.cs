@@ -15,6 +15,7 @@ namespace SIBR.Storage.Ingest
         public IntervalWorkerConfiguration SiteUpdateWorker { get; set; }
         public IntervalWorkerConfiguration StatsheetsWorker { get; set; }
         public IntervalWorkerConfiguration TeamPlayerWorker { get; set; }
+        public IntervalWorkerConfiguration TeamElectionWorker { get; set; }
         public ThrottledIntervalWorkerConfiguration RenovationsWorker { get; set; }
         public ThrottledIntervalWorkerConfiguration ElectionResultsWorker { get; set; }
     }

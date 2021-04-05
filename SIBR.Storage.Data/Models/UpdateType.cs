@@ -32,6 +32,7 @@
         PlayoffMatchup = 29,
         Tournament = 30,
         Stadium = 31,
-        RenovationProgress = 32
+        RenovationProgress = 32,
+        TeamElectionStats = 33
     }
 }
