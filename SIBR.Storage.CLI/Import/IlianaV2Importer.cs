@@ -68,7 +68,7 @@ namespace SIBR.Storage.CLI.Import
 
             await using (var tx = await conn.BeginTransactionAsync())
             {
-                await _updateStore.SaveUpdates(conn, updates, false);
+                await _updateStore.SaveUpdates(conn, updates, false, false);
                 await _gameUpdateStore.SaveGameUpdates(conn, gameUpdates, false, false);
                 await tx.CommitAsync();
             }

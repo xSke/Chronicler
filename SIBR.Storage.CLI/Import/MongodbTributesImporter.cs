@@ -32,7 +32,7 @@ namespace SIBR.Storage.CLI.Import
             {
                 var timestamp = entry["firstSeen"]["$date"].ToObject<DateTime>().ToInstant();
                 var data = entry["payload"];
-                await _store.SaveUpdate(conn, EntityUpdate.From(UpdateType.Tributes, _sourceId, timestamp, data));
+                await _store.SaveUpdate(conn, EntityUpdate.From(UpdateType.Tributes, _sourceId, timestamp, data), false);
                 _logger.Information("Saved tributes update at {Timestamp}", timestamp);
             }
 

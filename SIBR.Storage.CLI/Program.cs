@@ -77,6 +77,12 @@ namespace SIBR.Storage.CLI
             public DateTimeOffset? End { get; set; }
         }
 
+        [Verb("rebuild")]
+        public class RebuildCmd
+        {
+            
+        }
+
         static async Task Main(string[] args)
         {
             var config = new ConfigurationBuilder()
@@ -100,12 +106,13 @@ namespace SIBR.Storage.CLI
                 .AddSingleton<FlatFileExport>()
                 .AddSingleton<StreamReplay>()
                 .AddSingleton<SQLiteExport>()
+                .AddSingleton<VersionRebuild>()
                 .AddSingleton<RawExport>()
                 .AddMessagePackSettings()
                 .BuildServiceProvider();
 
             var result = Parser.Default
-                .ParseArguments<ImportCmd, MigrationsCmd, IngestCmd, ExportCmd, ExportDbCmd, ExportRawCmd, ReplayCmd>(args);
+                .ParseArguments<ImportCmd, MigrationsCmd, IngestCmd, ExportCmd, ExportDbCmd, ExportRawCmd, ReplayCmd, RebuildCmd>(args);
 
             if (result.TypeInfo.Current != typeof(MigrationsCmd))
                 // Init sets up NodaTime in a way that breaks Evolve, so don't do it if we're migrating
@@ -118,6 +125,12 @@ namespace SIBR.Storage.CLI
             await result.WithParsedAsync<ExportCmd>(opts => HandleExport(services, opts));
             await result.WithParsedAsync<ExportDbCmd>(opts => HandleExportDb(services, opts));
             await result.WithParsedAsync<ExportRawCmd>(opts => HandleExportRaw(services, opts));
+            await result.WithParsedAsync<RebuildCmd>(opts => HandleRebuild(services, opts));
+        }
+
+        private static async Task HandleRebuild(ServiceProvider services, RebuildCmd opts)
+        {
+            await services.GetRequiredService<VersionRebuild>().FullRebuild();
         }
 
         private static Task HandleExportRaw(ServiceProvider services, ExportRawCmd opts)

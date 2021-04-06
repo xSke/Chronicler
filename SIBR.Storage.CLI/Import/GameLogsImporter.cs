@@ -71,9 +71,9 @@ namespace SIBR.Storage.CLI
             sw.Start();
             await using (var tx = await conn.BeginTransactionAsync())
             {
-                var streamRes = await _updateStore.SaveUpdates(conn, streamUpdates, false);
+                var streamRes = await _updateStore.SaveUpdates(conn, streamUpdates, false, false);
                 await _gameUpdateStore.SaveGameUpdates(conn, gameUpdates, false, false);
-                var miscRes = await _updateStore.SaveUpdates(conn, miscUpdates, false);
+                var miscRes = await _updateStore.SaveUpdates(conn, miscUpdates, false, false);
                 await tx.CommitAsync();
                 
                 sw.Stop();

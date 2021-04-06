@@ -42,7 +42,7 @@ namespace SIBR.Storage.CLI
                     updates.AddRange(ExtractUpdates(entry, timestamp.Value));
             }
 
-            var res = await _updateStore.SaveUpdates(conn, updates);
+            var res = await _updateStore.SaveUpdates(conn, updates, append: false);
             _logger.Information("- Imported {Updates} new object updates", res);
             await tx.CommitAsync();
         }

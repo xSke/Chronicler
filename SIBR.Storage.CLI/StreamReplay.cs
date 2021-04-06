@@ -70,7 +70,7 @@ namespace SIBR.Storage.CLI
                     
                     sw.Restart();
                     await using var tx = await conn.BeginTransactionAsync();
-                    var savedUpdates = await _updateStore.SaveUpdates(conn, extractedUpdates, false);
+                    var savedUpdates = await _updateStore.SaveUpdates(conn, extractedUpdates, false, append: false);
                     await tx.CommitAsync();
                     sw.Stop();
 

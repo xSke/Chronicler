@@ -73,11 +73,11 @@ order by type, entity_id, timestamp
             _db.QueryStreamAsync<EntityUpdateView>("select * from latest_view where type = @Type",
                 new {Type = type});
 
-        public Task SaveUpdate(NpgsqlConnection conn, EntityUpdate update) =>
-            SaveUpdates(conn, new[] {update});
+        public Task SaveUpdate(NpgsqlConnection conn, EntityUpdate update, bool append = true) =>
+            SaveUpdates(conn, new[] {update}, append: append);
 
         public async Task<int> SaveUpdates(NpgsqlConnection conn, IReadOnlyCollection<EntityUpdate> updates,
-            bool log = true)
+            bool log = true, bool append = true)
         {
             if (log)
                 LogUpdates(updates);
@@ -85,9 +85,10 @@ order by type, entity_id, timestamp
             await _objectStore.SaveObjects(conn, updates);
 
             var rows = await conn.ExecuteAsync(
-                "insert into updates (source_id, type, timestamp, hash, entity_id) select unnest(@SourceId), unnest(@Type), unnest(@Timestamp), unnest(@Hash), unnest(@EntityId) on conflict do nothing",
+                "insert into updates (update_id, source_id, type, timestamp, hash, entity_id) select unnest(@UpdateId), unnest(@SourceId), unnest(@Type), unnest(@Timestamp), unnest(@Hash), unnest(@EntityId) on conflict do nothing",
                 new
                 {
+                    UpdateId = updates.Select(u => u.UpdateId).ToArray(),
                     SourceId = updates.Select(u => u.SourceId).ToArray(),
 
                     // byte[] gets mapped to bytea and not smallint[], so send a short[]
@@ -99,6 +100,20 @@ order by type, entity_id, timestamp
                     // Use all-zero UUID as a "null value" instead of actual null, blame Npgsql
                     EntityId = updates.Select(u => u.EntityId ?? default).ToArray()
                 });
+
+            if (append)
+            {
+                await conn.ExecuteAsync(
+                    "select append_version(unnest(@Type)::smallint, unnest(@EntityId), unnest(@Hash), unnest(@Timestamp), unnest(@UpdateId))",
+                    new
+                    {
+                        Type = updates.Select(u => (short) u.Type).ToArray(),
+                        EntityId = updates.Select(u => u.EntityId ?? default).ToArray(),
+                        Hash = updates.Select(u => u.Hash).ToArray(),
+                        Timestamp = updates.Select(u => u.Timestamp).ToArray(),
+                        UpdateId = updates.Select(u => u.UpdateId).ToArray()
+                    });
+            }
 
             return rows;
         }
