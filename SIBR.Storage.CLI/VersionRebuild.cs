@@ -42,6 +42,9 @@ namespace SIBR.Storage.CLI
                 UpdateType.GameStatsheet,
                 UpdateType.PlayerStatsheet,
                 UpdateType.TeamStatsheet,
+                UpdateType.Stadium,
+                UpdateType.RenovationProgress,
+                UpdateType.TeamElectionStats,
                 UpdateType.Stream
             };
 
