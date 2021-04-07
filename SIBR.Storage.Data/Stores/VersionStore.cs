@@ -43,12 +43,23 @@ namespace SIBR.Storage.Data
                 .Select("*")
                 .Join("objects", "versions.hash", "objects.hash")
                 .Where("type", type)
-                .ApplySorting(ps, "valid_from", "entity_id");
+                .OrderBy("entity_id");
             
+            // Specifically don't do a time-based sort here, only by entity ID
+            // so shifts in the current version don't break things
+            if (ps.Page != null) 
+                q.Where("entity_id", ">", ps.Page.EntityId);
+
             if (ps.At != null)
                 q.Where("valid_from", "<=", ps.At).WhereRaw("coalesce(valid_to, 'infinity') > ?", ps.At);
             else
                 q.WhereNull("valid_to");
+
+            if (ps.Id != null)
+                q.WhereIn("entity_id", ps.Id);
+
+            if (ps.Count != null)
+                q.Limit(ps.Count.Value);
 
             return conn.QueryKataAsync<EntityVersion>(q);
         }
@@ -99,12 +110,11 @@ namespace SIBR.Storage.Data
                 _logger.Information("Rebuilt versions for {Type} {Id} ({VersionCount} versions, took {Duration})", type, id, count, sw.Elapsed);
         }
 
-        public class EntityQuery: IPaginatedQuery
+        public class EntityQuery
         {
             public Guid[]? Id { get; set; }
             public Instant? At { get; set; }
             public int? Count { get; set; }
-            public SortOrder Order { get; set;  }
             public PageToken Page { get; set; }
         }
         
