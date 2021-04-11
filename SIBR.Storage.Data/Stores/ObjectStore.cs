@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -12,14 +13,17 @@ namespace SIBR.Storage.Data
 {
     public class ObjectStore
     {
-        private readonly HashSet<Guid> _knownObjects = new HashSet<Guid>();
+        private readonly ConcurrentDictionary<Guid, bool> _knownObjects = new ConcurrentDictionary<Guid, bool>();
         
         public async Task SaveObjects(NpgsqlConnection conn, IEnumerable<IJsonObject> updates)
         {
             var dictionary = new Dictionary<Guid, JToken>();
             foreach (var obj in updates)
-                if (_knownObjects.Add(obj.Hash))
+            {
+                if (_knownObjects.TryAdd(obj.Hash, true))
                     dictionary[obj.Hash] = obj.Data;
+            }
+            
             var entries = dictionary.ToList();
             
             await conn.ExecuteAsync(
