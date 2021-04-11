@@ -33,6 +33,7 @@
         Tournament = 30,
         Stadium = 31,
         RenovationProgress = 32,
-        TeamElectionStats = 33
+        TeamElectionStats = 33,
+        Item = 34
     }
 }

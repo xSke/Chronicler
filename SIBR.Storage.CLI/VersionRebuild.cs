@@ -48,7 +48,8 @@ namespace SIBR.Storage.CLI
                 UpdateType.Tournament,
                 UpdateType.Stadium,
                 UpdateType.RenovationProgress,
-                UpdateType.TeamElectionStats
+                UpdateType.TeamElectionStats,
+                UpdateType.Item
             };
 
             foreach (var type in types)

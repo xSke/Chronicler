@@ -33,23 +33,49 @@ namespace SIBR.Storage.Ingest
         protected override async Task RunInterval()
         {
             await using var conn = await _db.Obtain();
+
+            List<EntityUpdate> teamUpdates;
+            List<EntityUpdate> playerUpdates;
+            
             await using (var tx = await conn.BeginTransactionAsync())
             {
+                teamUpdates = (await FetchAllTeams()).ToList();
 
-                var updates = new List<EntityUpdate>();
-                var allTeams = (await FetchAllTeams()).ToList();
-                updates.AddRange(allTeams);
-
-                var playerIds = allTeams.SelectMany(team => AllPlayersOnTeam(team.Data as JObject)).ToHashSet();
-                playerIds.UnionWith(await _playerStore.GetAllPlayerIds(conn));
-
-                updates.AddRange(await FetchPlayersChunked(playerIds, 150));
-                var res = await _updateStore.SaveUpdates(conn, updates);
+                var count = await _updateStore.SaveUpdates(conn, teamUpdates);
                 await tx.CommitAsync();
-                _logger.Information("Saved {Updates} team and player updates", res);
+                _logger.Information("Saved {Updates} team updates", count);
+            }
+
+            await using (var tx = await conn.BeginTransactionAsync())
+            {
+                var playerIds = teamUpdates.SelectMany(team => AllPlayersOnTeam(team.Data as JObject)).ToHashSet();
+                playerIds.UnionWith(await _playerStore.GetAllPlayerIds(conn));
+                
+                playerUpdates = await FetchPlayersChunked(playerIds, 150);
+                var count = await _updateStore.SaveUpdates(conn, playerUpdates);
+                await tx.CommitAsync();
+                _logger.Information("Saved {Updates} player updates", count);
+            }
+
+            await using (var tx = await conn.BeginTransactionAsync())
+            {
+                var items = ExtractItems(playerUpdates);
+                
+                var count = await _updateStore.SaveUpdates(conn, items);
+                await tx.CommitAsync();
+                _logger.Information("Saved {Updates} item updates", count);
             }
 
             await _db.RefreshMaterializedViews(conn, "team_versions", "player_versions", "teams", "players", "roster_versions", "current_roster");
+        }
+
+        private List<EntityUpdate> ExtractItems(List<EntityUpdate> playerUpdates)
+        {
+            return playerUpdates.SelectMany(update =>
+            {
+                return update.Data.SelectTokens("items[*]")
+                    .Select(data => EntityUpdate.From(UpdateType.Item, update.SourceId, update.Timestamp, data));
+            }).ToList();
         }
 
         private async Task<List<EntityUpdate>> FetchPlayersChunked(IEnumerable<Guid> playerIds, int chunkSize)
