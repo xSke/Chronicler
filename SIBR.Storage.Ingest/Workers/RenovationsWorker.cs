@@ -94,7 +94,7 @@ namespace SIBR.Storage.Ingest
                 return false;
 
             // Only poll before Lateseason
-            if (phase >= 6)
+            if (phase <= 1 || phase >= 6)
                 return false;
             
             // TODO: check to see if they're all on target somehow
