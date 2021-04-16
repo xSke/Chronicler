@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -21,7 +22,7 @@ namespace SIBR.Storage.CLI.Import
         {
             _logger.Information("Importing data files: {@ImportOptions}", options);
 
-            foreach (var filename in Directory.EnumerateFiles(options.Directory, FileFilter))
+            foreach (var filename in Directory.EnumerateFiles(options.Directory, FileFilter).OrderBy(x => x))
             {
                 _logger.Information("Processing {Filename}", filename);
                 await ProcessFile(filename, ReadJsonGzLines(filename), options);

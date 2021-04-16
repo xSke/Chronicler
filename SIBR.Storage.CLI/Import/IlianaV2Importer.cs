@@ -105,7 +105,7 @@ namespace SIBR.Storage.CLI.Import
             [JsonProperty("time")] public double Time { get; set; }
             [JsonProperty("data")] public JToken? Data { get; set; }
 
-            public Guid? GetEntityId() => Id == null ? TgbUtils.GenerateGuidFromString(Id) : (Guid?) null;
+            public Guid? GetEntityId() => Id != null ? TgbUtils.GenerateGuidFromString(Id) : (Guid?) null;
             public Instant GetTimestamp() => Instant.FromUnixTimeMilliseconds((long) (Time * 1000));
         }
 
