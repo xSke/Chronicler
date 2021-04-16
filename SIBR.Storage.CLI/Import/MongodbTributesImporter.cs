@@ -24,7 +24,8 @@ namespace SIBR.Storage.CLI.Import
             _store = services.GetRequiredService<UpdateStore>();
         }
 
-        protected override async Task ProcessFile(string filename, IAsyncEnumerable<JToken> entries)
+        protected override async Task ProcessFile(string filename, IAsyncEnumerable<JToken> entries,
+            ImportOptions options)
         {
             await using var conn = await _db.Obtain();
             await using var tx = await conn.BeginTransactionAsync();

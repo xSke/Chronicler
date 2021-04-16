@@ -32,7 +32,8 @@ namespace SIBR.Storage.CLI
             _gameUpdateStore = services.GetRequiredService<GameUpdateStore>();
         }
 
-        protected override async Task ProcessFile(string filename, IAsyncEnumerable<JToken> entries)
+        protected override async Task ProcessFile(string filename, IAsyncEnumerable<JToken> entries,
+            ImportOptions options)
         {
             using var hasher = new SibrHasher();
             var streamUpdates = new List<EntityUpdate>();

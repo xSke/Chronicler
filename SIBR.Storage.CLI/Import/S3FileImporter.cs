@@ -4,11 +4,9 @@ using System.IO;
 using System.IO.Compression;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NodaTime;
-using Serilog;
 
 namespace SIBR.Storage.CLI.Import
 {
@@ -16,16 +14,17 @@ namespace SIBR.Storage.CLI.Import
     {
         protected string FileFilter = "*";
 
-        protected abstract Task ProcessFile(string filename, IAsyncEnumerable<JToken> entries);
+        protected abstract Task ProcessFile(string filename, IAsyncEnumerable<JToken> entries,
+            ImportOptions options);
 
         public override async Task Run(ImportOptions options)
         {
-            _logger.Information("Importing data files from from {Directory}", options.Directory);
+            _logger.Information("Importing data files: {@ImportOptions}", options);
 
             foreach (var filename in Directory.EnumerateFiles(options.Directory, FileFilter))
             {
                 _logger.Information("Processing {Filename}", filename);
-                await ProcessFile(filename, ReadJsonGzLines(filename));
+                await ProcessFile(filename, ReadJsonGzLines(filename), options);
             }
 
             _logger.Information("Done!");
@@ -35,11 +34,12 @@ namespace SIBR.Storage.CLI.Import
         {
             await using var stream = File.OpenRead(file);
             await using var gz = new GZipStream(stream, CompressionMode.Decompress);
-            using var reader = new StreamReader(gz, bufferSize: 8192);
+            using var reader = new StreamReader(gz, bufferSize: 16 * 1024);
 
             using var json = new JsonTextReader(reader)
             {
-                SupportMultipleContent = true
+                SupportMultipleContent = true,
+                DateParseHandling = DateParseHandling.None
             };
 
             var serializer = new JsonSerializer();
@@ -52,25 +52,6 @@ namespace SIBR.Storage.CLI.Import
                     // Early out of entire file if parse error since we're reading by line
                     break;
             }
-            /*string line;
-            while ((line = await reader.ReadLineAsync()) != null)
-            {
-                JToken token = null;
-                try
-                {
-                    token = JToken.Parse(line);
-                }
-                catch (JsonReaderException e)
-                {
-                    _logger.Error(e, "Error parsing JSON value: {Contents}", line);
-                }
-
-                if (token != null)
-                    yield return token;
-                else
-                    // Early out of entire file if parse error since we're reading by line
-                    break;
-            }*/
         }
         
         protected Instant? ExtractTimestamp(JToken obj)

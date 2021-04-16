@@ -27,6 +27,9 @@ namespace SIBR.Storage.CLI
             
             [Value(1, MetaName = "directory", HelpText = "The directory to read log files from")]
             public string Directory { get; set; }
+            
+            [Option("before")] public Instant? Before { get; set; }
+            [Option("after")] public Instant? After { get; set; }
         }
 
         [Verb("migrations")]
@@ -188,7 +191,9 @@ namespace SIBR.Storage.CLI
             
             await importer.Run(new ImportOptions
             {
-                Directory = opts.Directory
+                Directory = opts.Directory,
+                After = opts.After,
+                Before = opts.Before
             });
         }
     }
