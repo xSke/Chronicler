@@ -8,8 +8,15 @@ drop materialized view if exists teams;
 
 create materialized view team_versions as
     select
-        update_id, entity_id as team_id, version, first_seen, last_seen, hash, data
-    from versions_view
+        version_id as update_id,
+        entity_id as team_id,
+        seq as version,
+        valid_from as first_seen,
+        valid_to as last_seen,
+        hash,
+        data
+    from versions
+    inner join objects using (hash)
     where type = 2; -- Team = 2
 create unique index team_versions_pkey on team_versions (team_id, first_seen);
 
@@ -38,13 +45,14 @@ create unique index on current_roster (player_id, team_id);
 create materialized view player_versions as
     select
         e.entity_id as player_id,
-        v.update_id,
-        v.first_seen,
-        v.last_seen,
+        v.version_id as update_id,
+        v.valid_from as first_seen,
+        v.valid_to as last_seen,
         v.hash,
-        v.data
+        data
     from entities e
-        inner join versions_view v using (type, entity_id)
+        inner join versions v using (type, entity_id)
+        inner join objects using (hash)
         where type = 1;
 create unique index player_versions_pkey on player_versions (player_id, first_seen);
 
