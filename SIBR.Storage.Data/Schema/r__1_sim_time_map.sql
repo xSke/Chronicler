@@ -4,13 +4,14 @@ drop materialized view if exists simdata_versions;
 create materialized view simdata_versions as
     select
         type,
-        update_id,
-        first_seen,
-        last_seen,
+        version_id as update_id,
+        valid_from as first_seen,
+        valid_to as last_seen,
         hash,
         data
-    from versions_view
-    where type = 9 and first_seen is not null;
+    from versions
+    inner join objects using (hash)
+    where type = 9 and versions.valid_from is not null;
 create unique index simdata_versions_pkey on simdata_versions (first_seen);
 
 create view time_map_view as
