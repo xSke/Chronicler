@@ -19,6 +19,7 @@ namespace SIBR.Storage.Ingest
         private readonly PlayerUpdateStore _playerStore;
         private readonly IClock _clock;
         private readonly Guid _sourceId;
+        private Task _refreshMatviewTask;
 
         public TeamPlayerDataWorker(IServiceProvider services, IntervalWorkerConfiguration config, Guid sourceId) : base(services, config)
         {
@@ -66,7 +67,29 @@ namespace SIBR.Storage.Ingest
                 _logger.Information("Saved {Updates} item updates", count);
             }
 
-            await _db.RefreshMaterializedViews(conn, "team_versions", "player_versions", "teams", "players", "roster_versions", "current_roster");
+            ForkRefreshMatviews();
+        }
+
+        private void ForkRefreshMatviews()
+        {
+            async Task Inner()
+            {
+                try
+                {
+                    await using var conn = await _db.Obtain();
+                    await _db.RefreshMaterializedViews(conn, "team_versions", "player_versions", "teams", "players",
+                        "roster_versions", "current_roster");
+                }
+                catch (Exception e)
+                {
+                    _logger.Error(e, "Error refreshing team/player matviews");
+                }
+            }
+
+            if (_refreshMatviewTask == null || _refreshMatviewTask.IsCompleted)
+                _refreshMatviewTask = Inner();
+            else
+                _logger.Warning("Matview refresh still running, skipping");
         }
 
         private List<EntityUpdate> ExtractItems(List<EntityUpdate> playerUpdates)
