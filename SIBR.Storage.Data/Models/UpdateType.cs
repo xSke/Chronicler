@@ -34,6 +34,7 @@
         Stadium = 31,
         RenovationProgress = 32,
         TeamElectionStats = 33,
-        Item = 34
+        Item = 34,
+        CommunityChestProgress = 35
     }
 }
