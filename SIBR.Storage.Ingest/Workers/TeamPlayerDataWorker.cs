@@ -52,6 +52,10 @@ namespace SIBR.Storage.Ingest
                 var playerIds = teamUpdates.SelectMany(team => AllPlayersOnTeam(team.Data as JObject)).ToHashSet();
                 playerIds.UnionWith(await _playerStore.GetAllPlayerIds(conn));
                 
+                // Hiroto Poole and Simon Peck, weird mystery missing players, just to seed the db
+                playerIds.Add(new Guid("692d8430-42ad-4b88-8b36-a7d20da9b0a6"));
+                playerIds.Add(new Guid("9dd40dc7-033f-4039-90c8-184853f3064f"));
+                
                 playerUpdates = await FetchPlayersChunked(playerIds, 150);
                 var count = await _updateStore.SaveUpdates(conn, playerUpdates);
                 await tx.CommitAsync();
