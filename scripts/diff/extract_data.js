@@ -137,7 +137,8 @@ module.exports = {
             items: [],
             weather: [],
             glossary: null,
-            snackTiers: null
+            snackTiers: null,
+            library: null
         };
 
         traverse(ast, {
@@ -183,6 +184,8 @@ module.exports = {
                         data.glossary = value.glossary;
                     } else if (value.maxBetTiers) {
                         data.snackTiers = value;
+                    } else if (value.books) {
+                        data.library = value.books;
                     }
                 }
             },

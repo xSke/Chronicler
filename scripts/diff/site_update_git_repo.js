@@ -76,6 +76,15 @@ async function addExtraData(dir, extraData) {
             dataFormatter.formatGlossary(extraData.glossary)
         );
     }
+
+    // Only add this if we have the library
+    if (extraData.library) {
+        await addFileGit(
+            dir,
+            "data/library.json",
+            JSON.stringify(extraData.library, null, 4)
+        );
+    }
 }
 
 async function main(dir) {
