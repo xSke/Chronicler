@@ -35,6 +35,7 @@
         RenovationProgress = 32,
         TeamElectionStats = 33,
         Item = 34,
-        CommunityChestProgress = 35
+        CommunityChestProgress = 35,
+        GiftProgress = 36
     }
 }
