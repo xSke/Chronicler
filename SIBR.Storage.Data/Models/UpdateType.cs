@@ -36,6 +36,7 @@
         TeamElectionStats = 33,
         Item = 34,
         CommunityChestProgress = 35,
-        GiftProgress = 36
+        GiftProgress = 36,
+        ShopSetup = 37
     }
 }
