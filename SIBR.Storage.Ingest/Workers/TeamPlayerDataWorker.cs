@@ -166,7 +166,7 @@ namespace SIBR.Storage.Ingest
         private async Task<List<Guid>> GetAllPlayersFromServer()
         {
             var (_, data) = await _client.GetJsonAsync("https://www.blaseball.com/database/playerNamesIds");
-            return data.SelectTokens("$.*.id").Select(x => x.Value<Guid>()).ToList();
+            return data.SelectTokens("$[*].id").Select(x => x.Value<Guid>()).ToList();
         }
     }
 }
