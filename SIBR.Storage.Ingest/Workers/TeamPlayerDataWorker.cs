@@ -8,6 +8,7 @@ using Newtonsoft.Json.Linq;
 using NodaTime;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
+using SIBR.Storage.Ingest.Utils;
 
 namespace SIBR.Storage.Ingest
 {
@@ -51,6 +52,10 @@ namespace SIBR.Storage.Ingest
             {
                 var playerIds = teamUpdates.SelectMany(team => AllPlayersOnTeam(team.Data as JObject)).ToHashSet();
                 playerIds.UnionWith(await _playerStore.GetAllPlayerIds(conn));
+
+                // TODO: if we have this, do we need anything else? idk??
+                var serverPlayers = await GetAllPlayersFromServer();
+                playerIds.UnionWith(serverPlayers);
                 
                 // Hiroto Poole and Simon Peck, weird mystery missing players, just to seed the db
                 playerIds.Add(new Guid("692d8430-42ad-4b88-8b36-a7d20da9b0a6"));
@@ -156,6 +161,12 @@ namespace SIBR.Storage.Ingest
             if (teamData.ContainsKey("shadows"))
                 players.AddRange(teamData["shadows"]!.Select(p => p.ToObject<Guid>()));
             return players;
+        }
+
+        private async Task<List<Guid>> GetAllPlayersFromServer()
+        {
+            var (_, data) = await _client.GetJsonAsync("https://www.blaseball.com/database/playerNamesIds");
+            return data.SelectTokens("$.*.id").Select(x => x.Value<Guid>()).ToList();
         }
     }
 }
