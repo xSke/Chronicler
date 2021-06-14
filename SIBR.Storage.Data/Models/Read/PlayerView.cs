@@ -23,7 +23,8 @@ namespace SIBR.Storage.Data.Models
             Lineup,
             Rotation,
             Bullpen,
-            Bench
+            Bench,
+            Shadows
         }
 
         public PageToken NextPage => new PageToken(Timestamp, PlayerId);
