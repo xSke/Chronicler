@@ -145,10 +145,16 @@ namespace SIBR.Storage.Ingest
         private List<Guid> AllPlayersOnTeam(JObject teamData)
         {
             var players = new List<Guid>();
-            players.AddRange(teamData["lineup"]!.Select(p => p.ToObject<Guid>()));
-            players.AddRange(teamData["rotation"]!.Select(p => p.ToObject<Guid>()));
-            players.AddRange(teamData["bullpen"]!.Select(p => p.ToObject<Guid>()));
-            players.AddRange(teamData["bench"]!.Select(p => p.ToObject<Guid>()));
+            if (teamData.ContainsKey("lineup"))
+                players.AddRange(teamData["lineup"]!.Select(p => p.ToObject<Guid>()));
+            if (teamData.ContainsKey("rotation"))
+                players.AddRange(teamData["rotation"]!.Select(p => p.ToObject<Guid>()));
+            if (teamData.ContainsKey("bullpen"))
+                players.AddRange(teamData["bullpen"]!.Select(p => p.ToObject<Guid>()));
+            if (teamData.ContainsKey("bench"))
+                players.AddRange(teamData["bench"]!.Select(p => p.ToObject<Guid>()));
+            if (teamData.ContainsKey("shadows"))
+                players.AddRange(teamData["shadows"]!.Select(p => p.ToObject<Guid>()));
             return players;
         }
     }

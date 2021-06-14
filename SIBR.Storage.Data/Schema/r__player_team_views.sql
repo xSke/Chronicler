@@ -30,7 +30,7 @@ create unique index teams_pkey on teams (team_id);
 create materialized view current_roster as
     select
         player_id, team_id, position, roster_index
-    from teams, unnest(array ['lineup', 'rotation', 'bullpen', 'bench']) as position
+    from teams, unnest(array ['lineup', 'rotation', 'bullpen', 'bench', 'shadows']) as position
         inner join lateral (
             select
                 value::uuid as player_id,
@@ -79,7 +79,7 @@ create materialized view roster_versions as
             lag(roster_index) over w as prev_roster_index,
             
             lag(last_seen) over w as prev_last_seen
-        from team_versions, unnest(array ['lineup', 'rotation', 'bullpen', 'bench']) as position
+        from team_versions, unnest(array ['lineup', 'rotation', 'bullpen', 'bench', 'shadows']) as position
             inner join lateral (
                 select
                     value::uuid as player_id,
