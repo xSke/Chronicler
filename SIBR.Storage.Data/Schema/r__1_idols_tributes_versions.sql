@@ -14,8 +14,8 @@ create materialized view tributes_by_player as
     select
         update_id,
         first_seen as timestamp,
-        (jsonb_array_elements(data) -> 'peanuts')::int as peanuts,
-        (jsonb_array_elements(data) ->> 'playerId')::uuid as player_id
+        (jsonb_array_elements(coalesce(data->'players', data)) -> 'peanuts')::int as peanuts,
+        (jsonb_array_elements(coalesce(data->'players', data)) ->> 'playerId')::uuid as player_id
     from tributes_versions;
 create unique index on tributes_by_player (timestamp, update_id, player_id);
 
