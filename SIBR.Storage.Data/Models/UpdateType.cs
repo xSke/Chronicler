@@ -37,6 +37,7 @@
         Item = 34,
         CommunityChestProgress = 35,
         GiftProgress = 36,
-        ShopSetup = 37
+        ShopSetup = 37,
+        SunSun = 38
     }
 }
