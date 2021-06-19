@@ -72,7 +72,17 @@ namespace SIBR.Storage.Data.Utils
                 (UpdateType.Temporal, "value.temporal"),
                 (UpdateType.Bossfight, "value.fights.bossFights[*]"),
                 (UpdateType.Stadium, "value.leagues.stadiums[*]"),
-                (UpdateType.CommunityChestProgress, "value.leagues.stats.communityChest")
+                (UpdateType.CommunityChestProgress, "value.leagues.stats.communityChest"),
+                (UpdateType.Playoffs, "value.games.postseasons[*].playoffs"),
+                (UpdateType.PlayoffRound, "value.games.postseasons[*].allRounds[*]"),
+                (UpdateType.PlayoffMatchup, "value.games.postseasons[*].allMatchups[*]"),
+                
+                // (from older formats, pre-Underbracket, so we can replay it in)
+                (UpdateType.Playoffs, "value.games.postseason.playoffs"),
+                (UpdateType.PlayoffRound, "value.games.postseason.round"),
+                (UpdateType.PlayoffRound, "value.games.postseason.allRounds[*]"),
+                (UpdateType.PlayoffMatchup, "value.games.postseason.matchups[*]"),
+                (UpdateType.PlayoffMatchup, "value.games.postseason.allMatchups[*]")
             ));
 
             if (root["value"]?["games"]?["schedule"] is JArray schedule)
