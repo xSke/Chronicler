@@ -39,6 +39,27 @@ namespace SIBR.Storage.Data
             return _db.QueryKataAsync<EntityUpdateView>(q);
         }
 
+        public async Task<List<EntityUpdateView>> ExportAllUpdatesChunked(NpgsqlConnection conn, UpdateType type, EntityVersionQuery opts)
+        {
+            var q = new SqlKata.Query("updates")
+                .ApplyBounds(opts, "timestamp")
+                .ApplySorting(opts, "timestamp", "update_id")
+                .Where("type", type);
+
+            if (opts.Ids != null)
+                q.WhereIn("entity_id", opts.Ids);
+            
+            var results = await conn.QueryKataAsync<EntityUpdateView>(q).ToListAsync();
+            
+            // We do the "join" like this because the overhead of another query is less than the overhead of "duplicating" the objec
+            var objectHashes = results.Select(r => r.Hash).ToHashSet();
+            var objects = await _objectStore.GetObjectsByHashes(conn, objectHashes);
+            
+            foreach (var update in results) 
+                update.Data = objects[update.Hash];
+            return results;
+        }
+
         public IAsyncEnumerable<EntityUpdateView> ExportAllUpdatesGrouped(UpdateType type)
         {
             // todo: move to view

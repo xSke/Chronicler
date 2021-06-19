@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Dapper;
 using Newtonsoft.Json;
@@ -49,6 +50,19 @@ namespace SIBR.Storage.Data
                     Hash = entries.Select(e => e.Key).ToArray(),
                     Data = entries.Select(e => e.Value).ToArray()
                 });
+        }
+
+        public async Task<IReadOnlyDictionary<Guid, JsonElement>> GetObjectsByHashes(NpgsqlConnection conn, IEnumerable<Guid> hashes)
+        {
+            var objects = await conn.QueryAsync<RawObject>("select hash, data from objects where hash = any(@Hashes)",
+                new {Hashes = hashes.ToArray()});
+            return objects.ToDictionary(r => r.Hash, r => r.Data);
+        }
+
+        public class RawObject
+        {
+            public Guid Hash { get; set; }
+            public JsonElement Data { get; set; }
         }
     }
 }

@@ -7,6 +7,7 @@ using NodaTime;
 using Serilog;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
+using SIBR.Storage.Data.Query;
 using SIBR.Storage.Data.Utils;
 
 namespace SIBR.Storage.CLI
@@ -29,18 +30,29 @@ namespace SIBR.Storage.CLI
         public async Task Run(ReplayOptions opts)
         {
             _logger.Information("Starting replay (type: {Type}, start: {Start}, end: {End})", opts.Type, opts.Start, opts.End);
-            
-            using var hasher = new SibrHasher();
-            var updates = _updateStore.ExportAllUpdatesRaw(UpdateType.Stream, new UpdateStore.EntityVersionQuery {
-                After = opts.Start,
-                Before = opts.End
-            });
 
+            using var hasher = new SibrHasher();
+            
             var sw = new Stopwatch();
 
             await using var conn = await _db.Obtain();
-            await foreach (var chunk in updates.Buffer(200))
+
+            var page = opts.Start != null ? new PageToken(opts.Start.Value, default) : null;
+            while (true)
             {
+                var chunk = await _updateStore.ExportAllUpdatesChunked(conn, UpdateType.Stream,
+                    new UpdateStore.EntityVersionQuery
+                    {
+                        Page = page,
+                        Before = opts.End,
+                        Order = SortOrder.Asc,
+                        Count = 100
+                    });
+
+                if (chunk.Count == 0)
+                    break;
+                page = chunk.Last().NextPage;
+
                 if (opts.Type == UpdateType.Game)
                 {
                     var extractedGameUpdates = chunk.SelectMany(streamUpdate =>
