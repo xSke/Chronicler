@@ -85,6 +85,15 @@ namespace SIBR.Storage.CLI
         {
             
         }
+        
+        [Verb("fetchfeed")]
+        public class FetchFeedCmd
+        {
+            [Option("delay")] public int DelayMs { get; set; } = 1000;
+            
+            [Option("start")]
+            public DateTimeOffset? Start { get; set; }
+        }
 
         static async Task Main(string[] args)
         {
@@ -110,12 +119,13 @@ namespace SIBR.Storage.CLI
                 .AddSingleton<StreamReplay>()
                 .AddSingleton<SQLiteExport>()
                 .AddSingleton<VersionRebuild>()
+                .AddSingleton<FetchFeedJob>()
                 .AddSingleton<RawExport>()
                 .AddMessagePackSettings()
                 .BuildServiceProvider();
 
             var result = Parser.Default
-                .ParseArguments<ImportCmd, MigrationsCmd, IngestCmd, ExportCmd, ExportDbCmd, ExportRawCmd, ReplayCmd, RebuildCmd>(args);
+                .ParseArguments<ImportCmd, MigrationsCmd, IngestCmd, ExportCmd, ExportDbCmd, ExportRawCmd, ReplayCmd, RebuildCmd, FetchFeedCmd>(args);
 
             if (result.TypeInfo.Current != typeof(MigrationsCmd))
                 // Init sets up NodaTime in a way that breaks Evolve, so don't do it if we're migrating
@@ -129,6 +139,7 @@ namespace SIBR.Storage.CLI
             await result.WithParsedAsync<ExportDbCmd>(opts => HandleExportDb(services, opts));
             await result.WithParsedAsync<ExportRawCmd>(opts => HandleExportRaw(services, opts));
             await result.WithParsedAsync<RebuildCmd>(opts => HandleRebuild(services, opts));
+            await result.WithParsedAsync<FetchFeedCmd>(opts => HandleFetchFeed(services, opts));
         }
 
         private static async Task HandleRebuild(ServiceProvider services, RebuildCmd opts)
@@ -164,6 +175,13 @@ namespace SIBR.Storage.CLI
                 OutDir = opts.Directory,
                 Compress = opts.Compress
             });
+        }
+        
+        private static async Task HandleFetchFeed(IServiceProvider services, FetchFeedCmd opts)
+        {
+            await services.GetRequiredService<FetchFeedJob>().Run(
+                opts.DelayMs, 
+                opts.Start != null ? Instant.FromDateTimeOffset(opts.Start.Value) : (Instant?) null);
         }
 
         private static async Task HandleReplay(IServiceProvider services, ReplayCmd opts)
