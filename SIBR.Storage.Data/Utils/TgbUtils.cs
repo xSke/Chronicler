@@ -55,7 +55,7 @@ namespace SIBR.Storage.Data.Utils
                     .Where(u => typeFilter == null || u.type == typeFilter.Value)
                     .SelectMany(item =>
                         root.SelectTokens(item.path)
-                            .Where(token => token.First != null)
+                            .Where(token => token.Type != JTokenType.Null && token.First != null)
                             .Select(token => EntityUpdate.From(item.type, sourceId, timestamp, token)));
             }
 

@@ -46,7 +46,7 @@ namespace SIBR.Storage.CLI
                         Page = page,
                         Before = opts.End,
                         Order = SortOrder.Asc,
-                        Count = 100
+                        Count = 500
                     });
 
                 if (chunk.Count == 0)
