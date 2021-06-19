@@ -38,6 +38,7 @@
         CommunityChestProgress = 35,
         GiftProgress = 36,
         ShopSetup = 37,
-        SunSun = 38
+        SunSun = 38,
+        LibraryStory = 39
     }
 }
