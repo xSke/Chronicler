@@ -29,6 +29,9 @@ namespace SIBR.Storage.API.Controllers.v2
         [Route("entities")]
         public async Task<IActionResult> GetEntities([Required, FromQuery] UpdateType type, [FromQuery] ApiEntityQuery args)
         {
+            if (args.Count == null)
+                args.Count = type == UpdateType.Player ? 2000 : 1000;
+            
             await using var conn = await _db.Obtain();
             var entities = _versionStore.GetEntities(conn, type, args.ToDbQuery());
             
@@ -45,7 +48,7 @@ namespace SIBR.Storage.API.Controllers.v2
             [ModelBinder(BinderType = typeof(CommaSeparatedBinder))]
             public Guid[]? Id { get; set; }
             public Instant? At { get; set; }
-            [Range(1, 1000)] public int Count { get; set; } = 1000;
+            [Range(1, 2000)] public int? Count { get; set; }
             public PageToken Page { get; set; }
             
             public VersionStore.EntityQuery ToDbQuery() => new VersionStore.EntityQuery
