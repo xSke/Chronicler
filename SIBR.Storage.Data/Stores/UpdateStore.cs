@@ -54,10 +54,14 @@ namespace SIBR.Storage.Data
             // We do the "join" like this because the overhead of another query is less than the overhead of "duplicating" the objec
             var objectHashes = results.Select(r => r.Hash).ToHashSet();
             var objects = await _objectStore.GetObjectsByHashes(conn, objectHashes);
-            
-            foreach (var update in results) 
+
+            return results.Where(update =>
+            {
+                if (!objects.ContainsKey(update.Hash))
+                    return false;
                 update.Data = objects[update.Hash];
-            return results;
+                return true;
+            }).ToList();
         }
 
         public IAsyncEnumerable<EntityUpdateView> ExportAllUpdatesGrouped(UpdateType type)
