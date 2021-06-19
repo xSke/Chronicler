@@ -35,6 +35,7 @@ namespace SIBR.Storage.Ingest
         {
             await using var conn = await _db.Obtain();
             
+            HashSet<Guid> lastIds = null;
             while (true)
             {
                 await using (var tx = await conn.BeginTransactionAsync())
@@ -42,20 +43,22 @@ namespace SIBR.Storage.Ingest
                     var lastItem = await _feedStore.GetLatestFeedItem(conn);
                     var lastTimestamp = lastItem?.Timestamp;
 
-                    var feedUrl = GetFeedUrl(lastTimestamp, FetchLimit);
+                    var feedUrl = GetFeedUrl(lastTimestamp - Duration.FromMilliseconds(1), FetchLimit);
                     var feedItems = await GetFeedItems(feedUrl);
-                    _logger.Information("Fetched {ItemCount} new feed items starting at {BeforeFilter}", feedItems.Count,
-                        lastTimestamp);
 
                     if (feedItems.Count == 0)
                         break;
-
-                    if (feedItems.Count == 1 && feedItems.First().Id == lastItem?.Id)
+                    
+                    if (lastIds != null && lastIds.SetEquals(feedItems.Select(i => i.Id)))
                         break;
-
+                    
+                    _logger.Information("Fetched {ItemCount} new feed items starting at {BeforeFilter}", feedItems.Count,
+                        lastTimestamp);
+                    
                     await _feedStore.SaveFeedItems(conn, feedItems);
-
                     await tx.CommitAsync();
+                    
+                    lastIds = feedItems.Select(i => i.Id).ToHashSet();
                 }
 
                 await Task.Delay(FetchDelay);
