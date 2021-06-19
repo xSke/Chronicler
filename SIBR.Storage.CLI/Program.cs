@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -70,8 +71,8 @@ namespace SIBR.Storage.CLI
         [Verb("replay")]
         public class ReplayCmd
         {
-            [Option("type")]
-            public UpdateType? Type { get; set; }
+            [Option("type", Separator = ',')]
+            public IEnumerable<UpdateType> Type { get; set; }
             
             [Option("start")]
             public DateTimeOffset? Start { get; set; }
@@ -186,9 +187,10 @@ namespace SIBR.Storage.CLI
 
         private static async Task HandleReplay(IServiceProvider services, ReplayCmd opts)
         {
+            var typeArray = opts.Type.ToArray();
             await services.GetRequiredService<StreamReplay>().Run(new StreamReplay.ReplayOptions
             {
-                Type = opts.Type,
+                Type = typeArray.Length == 0 ? null : typeArray,
                 Start = opts.Start != null ? Instant.FromDateTimeOffset(opts.Start.Value) : (Instant?) null,
                 End = opts.End != null ? Instant.FromDateTimeOffset(opts.End.Value) : (Instant?) null
             });

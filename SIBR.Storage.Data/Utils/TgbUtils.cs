@@ -45,14 +45,14 @@ namespace SIBR.Storage.Data.Utils
             }
         }
 
-        public static ExtractOutput ExtractUpdatesFromStreamRoot(Guid sourceId, Instant timestamp, JObject root, SibrHasher hasher, UpdateType? typeFilter = null)
+        public static ExtractOutput ExtractUpdatesFromStreamRoot(Guid sourceId, Instant timestamp, JObject root, SibrHasher hasher, UpdateType[]? typeFilter = null)
         {
             var output = new ExtractOutput();
 
             IEnumerable<EntityUpdate> GetUpdates(params (UpdateType type, string path)[] updates)
             {
                 return updates
-                    .Where(u => typeFilter == null || u.type == typeFilter.Value)
+                    .Where(u => typeFilter == null || typeFilter.Contains(u.type))
                     .SelectMany(item =>
                         root.SelectTokens(item.path)
                             .Where(token => token.Type != JTokenType.Null && token.First != null)

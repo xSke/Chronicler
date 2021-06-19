@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -29,7 +28,8 @@ namespace SIBR.Storage.CLI
 
         public async Task Run(ReplayOptions opts)
         {
-            _logger.Information("Starting replay (type: {Type}, start: {Start}, end: {End})", opts.Type, opts.Start, opts.End);
+            _logger.Information("Starting replay (type: {Type}, start: {Start}, end: {End})", 
+                opts.Type != null ? string.Join(",", opts.Type) : null, opts.Start, opts.End);
 
             using var hasher = new SibrHasher();
             
@@ -53,7 +53,8 @@ namespace SIBR.Storage.CLI
                     break;
                 page = chunk.Last().NextPage;
 
-                if (opts.Type == UpdateType.Game)
+                // if (opts.Type == UpdateType.Game)
+                if (false) // todo: uhhh how do we do this
                 {
                     var extractedGameUpdates = chunk.SelectMany(streamUpdate =>
                     {
@@ -95,7 +96,7 @@ namespace SIBR.Storage.CLI
 
         public class ReplayOptions
         {
-            public UpdateType? Type { get; set; }
+            public UpdateType[]? Type { get; set; }
             public Instant? Start { get; set; }
             public Instant? End { get; set; }
         }
