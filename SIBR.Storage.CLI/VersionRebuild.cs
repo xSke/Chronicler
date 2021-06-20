@@ -45,11 +45,19 @@ namespace SIBR.Storage.CLI
                 UpdateType.BonusResult,
                 UpdateType.DecreeResult,
                 UpdateType.EventResult,
+                UpdateType.Playoffs,
+                UpdateType.PlayoffRound,
+                UpdateType.PlayoffMatchup,
                 UpdateType.Tournament,
                 UpdateType.Stadium,
                 UpdateType.RenovationProgress,
                 UpdateType.TeamElectionStats,
-                UpdateType.Item
+                UpdateType.Item,
+                UpdateType.CommunityChestProgress,
+                UpdateType.GiftProgress,
+                UpdateType.ShopSetup,
+                UpdateType.SunSun,
+                UpdateType.LibraryStory
             };
 
             foreach (var type in types)
