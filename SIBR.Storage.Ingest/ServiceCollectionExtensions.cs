@@ -12,7 +12,7 @@ namespace SIBR.Storage.Ingest
                 {
                     var client = new HttpClient();
                     client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent",
-                        "Immaterial/0.1 (hi TGB! if I'm hitting you too hard, let me (@Ske#6201 @ SIBR discord) know. Hopefully not too bad?)");
+                        "Chronicler (hi TGB! if I'm hitting you too hard, let me (@Ske#6201 @ SIBR discord) know. Hopefully not too bad?)");
                     return client;
                 })
                 .AddSingleton<EventStream>()
