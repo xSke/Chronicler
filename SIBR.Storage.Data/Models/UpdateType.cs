@@ -39,6 +39,8 @@
         GiftProgress = 36,
         ShopSetup = 37,
         SunSun = 38,
-        LibraryStory = 39
+        LibraryStory = 39,
+        Vault = 40,
+        RisingStars = 41
     }
 }
