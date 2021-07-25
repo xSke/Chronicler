@@ -64,7 +64,7 @@ namespace SIBR.Storage.API.Controllers
             public Instant? After { get; set; }
             public SortOrder Order { get; set; }
             public PageToken Page { get; set; }
-            [Range(1, 1000)] public int? Count { get; set; }
+            [Range(1, 2000)] public int? Count { get; set; }
         }
     }
 }
