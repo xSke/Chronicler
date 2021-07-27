@@ -41,6 +41,7 @@
         SunSun = 38,
         LibraryStory = 39,
         Vault = 40,
-        RisingStars = 41
+        RisingStars = 41,
+        FuelProgress = 42
     }
 }
