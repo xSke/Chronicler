@@ -42,6 +42,7 @@
         LibraryStory = 39,
         Vault = 40,
         RisingStars = 41,
-        FuelProgress = 42
+        FuelProgress = 42,
+        Nullified = 43
     }
 }
