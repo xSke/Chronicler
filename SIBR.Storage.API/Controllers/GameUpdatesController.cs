@@ -34,6 +34,7 @@ namespace SIBR.Storage.API.Controllers
                 Season = opts.Season,
                 Tournament = opts.Tournament,
                 Day = opts.Day,
+                Before = opts.Before,
                 After = opts.After,
                 Count = opts.Count ?? 100,
                 Game = opts.Game,
