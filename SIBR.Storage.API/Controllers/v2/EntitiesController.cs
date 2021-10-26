@@ -30,7 +30,7 @@ namespace SIBR.Storage.API.Controllers.v2
         public async Task<IActionResult> GetEntities([Required, FromQuery] UpdateType type, [FromQuery] ApiEntityQuery args)
         {
             if (args.Count == null)
-                args.Count = type == UpdateType.Player ? 2000 : 1000;
+                args.Count = type == UpdateType.Player ? 5000 : 1000;
             
             await using var conn = await _db.Obtain();
             var entities = _versionStore.GetEntities(conn, type, args.ToDbQuery());
