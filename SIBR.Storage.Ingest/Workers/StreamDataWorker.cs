@@ -62,7 +62,7 @@ namespace SIBR.Storage.Ingest
         private async Task RunStreamDataConsumer(int index)
         {
             _logger.Information("Starting stream data consumer #{StreamIndex}", index);
-            await _eventStream.OpenStream("https://www.blaseball.com/events/streamData", index, async (data) =>
+            await _eventStream.OpenStream("https://api.blaseball.com/events/streamData", index, async (data) =>
             {
                 try
                 {

@@ -69,23 +69,23 @@ namespace SIBR.Storage.Ingest
         {
             using var hasher = new SibrHasher();
             
-            var recap = await _client.GetJsonAsync($"https://www.blaseball.com/database/offseasonRecap?season={season}");
+            var recap = await _client.GetJsonAsync($"https://api.blaseball.com/database/offseasonRecap?season={season}");
             yield return EntityUpdate.From(UpdateType.OffseasonRecap, _sourceId, recap.Timestamp, recap.Data, hasher);
 
             var decreeIds = recap.Data.Value<JArray>("decreeResults").Values<string>().ToList();
-            var decreeResults = await GetUpdatesByIds(UpdateType.DecreeResult, "https://www.blaseball.com/database/decreeResults", decreeIds, hasher);
+            var decreeResults = await GetUpdatesByIds(UpdateType.DecreeResult, "https://api.blaseball.com/database/decreeResults", decreeIds, hasher);
             _logger.Information("Fetched {DecreeCount} decree results", decreeIds.Count);
             foreach (var result in decreeResults)
                 yield return result;
 
             var bonusIds = recap.Data.Value<JArray>("bonusResults").Values<string>().ToList();
-            var bonusResults = await GetUpdatesByIds(UpdateType.BonusResult, "https://www.blaseball.com/database/bonusResults", bonusIds, hasher);
+            var bonusResults = await GetUpdatesByIds(UpdateType.BonusResult, "https://api.blaseball.com/database/bonusResults", bonusIds, hasher);
             _logger.Information("Fetched {BonusCount} bonus results", bonusIds.Count);
             foreach (var result in bonusResults)
                 yield return result;
 
             var eventIds = recap.Data.Value<JArray>("eventResults").Values<string>().ToList();
-            var eventResults = await GetUpdatesByIds(UpdateType.EventResult, "https://www.blaseball.com/database/eventResults", eventIds, hasher);
+            var eventResults = await GetUpdatesByIds(UpdateType.EventResult, "https://api.blaseball.com/database/eventResults", eventIds, hasher);
             _logger.Information("Fetched {EventCount} event results", eventIds.Count);
             foreach (var result in eventResults)
                 yield return result;

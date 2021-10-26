@@ -41,7 +41,7 @@ namespace SIBR.Storage.Ingest
             var updates = new List<GameUpdate>();
             for (var day = dayStart + 1; day < 100; day++)
             {
-                var jsonStr = await _client.GetStringAsync($"https://www.blaseball.com/database/games?season={season}&day={day}");
+                var jsonStr = await _client.GetStringAsync($"https://api.blaseball.com/database/games?season={season}&day={day}");
                 var timestamp = _clock.GetCurrentInstant();
                 var json = JArray.Parse(jsonStr);
                 _logger.Information("Polled future games at season {Season} day {Day}", season, day);

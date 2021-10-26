@@ -67,8 +67,8 @@ namespace SIBR.Storage.Ingest
             var cacheBust = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
             var url = tournament >= 0
-                ? $"https://www.blaseball.com/database/games?tournament={tournament}&day={day}&cache={cacheBust}"
-                : $"https://www.blaseball.com/database/games?season={season}&day={day}&cache={cacheBust}";
+                ? $"https://api.blaseball.com/database/games?tournament={tournament}&day={day}&cache={cacheBust}"
+                : $"https://api.blaseball.com/database/games?season={season}&day={day}&cache={cacheBust}";
             var jsonStr  = await _client.GetStringAsync(url);
             
             sw.Stop();

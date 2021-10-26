@@ -68,10 +68,10 @@ namespace SIBR.Storage.Ingest
         private string GetFeedUrl(Instant? start, int limit)
         {
             if (start == null) 
-                return $"https://www.blaseball.com/database/feed/global?limit={limit}&sort=1";
+                return $"https://api.blaseball.com/database/feed/global?limit={limit}&sort=1";
             
             var isoTime = InstantPattern.ExtendedIso.Format(start.Value);
-            return $"https://www.blaseball.com/database/feed/global?limit={limit}&sort=1&start={isoTime}";
+            return $"https://api.blaseball.com/database/feed/global?limit={limit}&sort=1&start={isoTime}";
         }
 
         private async Task<List<FeedItem>> GetFeedItems(string url)

@@ -136,14 +136,14 @@ namespace SIBR.Storage.Ingest
             var queryIds = string.Join(',', playerIds);
 
             var timestamp = _clock.GetCurrentInstant();
-            var json = await _client.GetStringAsync("https://www.blaseball.com/database/players?ids=" + queryIds);
+            var json = await _client.GetStringAsync("https://api.blaseball.com/database/players?ids=" + queryIds);
             return EntityUpdate.FromArray(UpdateType.Player, _sourceId, timestamp, JArray.Parse(json));
         }
 
         private async Task<IEnumerable<EntityUpdate>> FetchAllTeams()
         {
             var timestamp = _clock.GetCurrentInstant();
-            var json = await _client.GetStringAsync("https://www.blaseball.com/database/allTeams");
+            var json = await _client.GetStringAsync("https://api.blaseball.com/database/allTeams");
             return EntityUpdate.FromArray(UpdateType.Team, _sourceId, timestamp, JArray.Parse(json));
         }
 
@@ -165,7 +165,7 @@ namespace SIBR.Storage.Ingest
 
         private async Task<List<Guid>> GetAllPlayersFromServer()
         {
-            var (_, data) = await _client.GetJsonAsync("https://www.blaseball.com/database/playerNamesIds");
+            var (_, data) = await _client.GetJsonAsync("https://api.blaseball.com/database/playerNamesIds");
             return data.SelectTokens("$[*].id").Select(x => x.ToObject<Guid>()).ToList();
         }
     }
