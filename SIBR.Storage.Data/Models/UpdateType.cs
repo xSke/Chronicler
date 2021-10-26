@@ -43,6 +43,17 @@
         Vault = 40,
         RisingStars = 41,
         FuelProgress = 42,
-        Nullified = 43
+        Nullified = 43,
+        Attributes = 44,
+        Fanart = 45,
+        GlossaryWords = 46,
+        Library = 47,
+        SponsorData = 48,
+        StadiumPrefabs = 49,
+        FeedSeasonList = 50,
+        TheBeat = 51,
+        TheBook = 52,
+        ChampionCallout = 53,
+        DaysSinceLastIncineration = 54
     }
 }
