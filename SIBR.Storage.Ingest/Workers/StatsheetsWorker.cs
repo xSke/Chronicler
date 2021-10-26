@@ -69,7 +69,7 @@ namespace SIBR.Storage.Ingest
 
         private async Task<JToken> FetchSeasonStatsheet(string id)
         {
-            var statsheetsJson = await _client.GetStringAsync($"https://www.blaseball.com/database/seasonStatsheets?ids={id}");
+            var statsheetsJson = await _client.GetStringAsync($"https://api.blaseball.com/database/seasonStatsheets?ids={id}");
             var statsheetsObjs = JArray.Parse(statsheetsJson);
             return statsheetsObjs.FirstOrDefault();
         }
@@ -77,7 +77,7 @@ namespace SIBR.Storage.Ingest
         private async Task<string[]> FetchGameStatsheetIds(int season, int day)
         {
             var gamesJson = await _client.GetStringAsync(
-                $"https://www.blaseball.com/database/games?season={season}&day={day}");
+                $"https://api.blaseball.com/database/games?season={season}&day={day}");
             var gamesObjs = JArray.Parse(gamesJson);
 
             return gamesObjs.Select(game => game["statsheet"]!.Value<string>()).ToArray();
@@ -85,14 +85,14 @@ namespace SIBR.Storage.Ingest
         
         private async Task<JToken[]> FetchGameStatsheets(IEnumerable<string> ids)
         {
-            var statsheetsJson = await _client.GetStringAsync($"https://www.blaseball.com/database/gameStatsheets?ids={string.Join(',', ids)}");
+            var statsheetsJson = await _client.GetStringAsync($"https://api.blaseball.com/database/gameStatsheets?ids={string.Join(',', ids)}");
             var statsheetsObjs = JArray.Parse(statsheetsJson);
             return statsheetsObjs.ToArray();
         }
         
         private async Task<JToken[]> FetchTeamStatsheets(IEnumerable<string> ids)
         {
-            var statsheetsJson = await _client.GetStringAsync($"https://www.blaseball.com/database/teamStatsheets?ids={string.Join(',', ids)}");
+            var statsheetsJson = await _client.GetStringAsync($"https://api.blaseball.com/database/teamStatsheets?ids={string.Join(',', ids)}");
             var statsheetsObjs = JArray.Parse(statsheetsJson);
             return statsheetsObjs.ToArray();
         }
@@ -104,7 +104,7 @@ namespace SIBR.Storage.Ingest
             {
                 var statsheetsJson =
                     await _client.GetStringAsync(
-                        $"https://www.blaseball.com/database/playerStatsheets?ids={string.Join(',', chunk)}");
+                        $"https://api.blaseball.com/database/playerStatsheets?ids={string.Join(',', chunk)}");
                 var statsheetsObjs = JArray.Parse(statsheetsJson);
                 sheets.AddRange(statsheetsObjs);
             }

@@ -45,7 +45,7 @@ namespace SIBR.Storage.Ingest
 
         private async Task<EntityUpdate> GetTeamElectionStats(Guid teamId)
         {
-            var (timestamp, data) = await _client.GetJsonAsync($"https://www.blaseball.com/database/teamElectionStats?id={teamId}");
+            var (timestamp, data) = await _client.GetJsonAsync($"https://api.blaseball.com/database/teamElectionStats?id={teamId}");
             return EntityUpdate.From(UpdateType.TeamElectionStats, _sourceId, timestamp, data, idOverride: teamId); 
         }
     }

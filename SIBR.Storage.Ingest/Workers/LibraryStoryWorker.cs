@@ -38,7 +38,7 @@ namespace SIBR.Storage.Ingest
 
         private async Task<EntityUpdate> FetchStory(Guid id)
         {
-            var (timestamp, json) = await _client.GetJsonAsync($"https://www.blaseball.com/database/feed/story?id={id}");
+            var (timestamp, json) = await _client.GetJsonAsync($"https://api.blaseball.com/database/feed/story?id={id}");
             return EntityUpdate.From(UpdateType.LibraryStory, _sourceId, timestamp, json, idOverride: id);
         }
 

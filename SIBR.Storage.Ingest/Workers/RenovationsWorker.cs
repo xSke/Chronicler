@@ -77,7 +77,7 @@ namespace SIBR.Storage.Ingest
 
         private async Task<EntityUpdate> QueryRenovationProgress(Guid stadiumId)
         {
-            var data = await _client.GetStringAsync($"https://www.blaseball.com/database/renovationProgress?id={stadiumId}");
+            var data = await _client.GetStringAsync($"https://api.blaseball.com/database/renovationProgress?id={stadiumId}");
             var json = JToken.Parse(data);
             var timestamp = _clock.GetCurrentInstant();
             return EntityUpdate.From(UpdateType.RenovationProgress, _sourceId, timestamp, json, idOverride: stadiumId);
