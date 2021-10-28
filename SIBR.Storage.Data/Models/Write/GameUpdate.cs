@@ -19,6 +19,7 @@ namespace SIBR.Storage.Data.Models
         [JsonIgnore] public int Day { get; set; }
         [JsonIgnore] public int Tournament { get; set; }
         [JsonIgnore] public int PlayCount { get; set; }
+        [JsonIgnore] public string Sim { get; set; }
 
         public static GameUpdate From(Guid sourceId, Instant timestamp, JToken data, SibrHasher hasher = null) =>
             new GameUpdate
@@ -32,6 +33,7 @@ namespace SIBR.Storage.Data.Models
                 Day = data.Value<int>("day"),
                 Tournament = data.Value<int?>("tournament") ?? -1,
                 PlayCount = data.Value<int?>("playCount") ?? -1,
+                Sim = data.Value<string?>("sim") ?? "thisidisstaticyo"
             };
 
         public static IEnumerable<GameUpdate> FromArray(Guid sourceId, Instant timestamp,

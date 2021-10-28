@@ -36,6 +36,7 @@ namespace SIBR.Storage.Data
             if (opts.Team != null) q.Where(q => q.WhereIn("home_team", opts.Team).OrWhereIn("away_team", opts.Team));
             if (opts.Pitcher != null) q.Where(q => q.WhereIn("home_pitcher", opts.Pitcher).OrWhereIn("away_pitcher", opts.Pitcher));
             if (opts.Weather != null) q.WhereIn("weather", opts.Weather);
+            if (opts.Sim != null) q.Where("sim", opts.Sim);
             if (opts.Count != null) q.Limit(opts.Count.Value);
 
             return _db.QueryKataAsync<GameView>(q);
@@ -56,6 +57,7 @@ namespace SIBR.Storage.Data
             public Guid[] Team;
             public Guid[] Pitcher;
             public int[] Weather;
+            public string? Sim;
         }
     }
 }

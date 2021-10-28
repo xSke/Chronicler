@@ -34,6 +34,7 @@ namespace SIBR.Storage.API.Controllers
                 Season = opts.Season,
                 Tournament = opts.Tournament,
                 Day = opts.Day,
+                Sim = opts.Sim,
                 Before = opts.Before,
                 After = opts.After,
                 Count = opts.Count ?? 100,
@@ -56,6 +57,7 @@ namespace SIBR.Storage.API.Controllers
             public int? Season { get; set; }
             public int? Tournament { get; set; }
             public int? Day { get; set; }
+            public string? Sim { get; set; }
             
             [BindProperty(BinderType = typeof(CommaSeparatedBinder))]
             public Guid[] Game { get; set; }
