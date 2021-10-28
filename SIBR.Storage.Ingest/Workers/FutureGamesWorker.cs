@@ -36,7 +36,7 @@ namespace SIBR.Storage.Ingest
         {
             await using var conn = await _db.Obtain();
             var simData = await _updateStore.GetLatestUpdate(conn, UpdateType.Sim);
-            var (sim, season) = (simData.Data.Value<string?>("sim") ?? "thisidisstaticyo", simData.Data.Value<int>("season"));
+            var (sim, season) = (simData.Data.Value<string?>("id") ?? "thisidisstaticyo", simData.Data.Value<int>("season"));
 
             var jsonStr = await _client.GetStringAsync($"https://api.blaseball.com/api/games/schedule?sim={sim}&season={season}");
             var timestamp = _clock.GetCurrentInstant();

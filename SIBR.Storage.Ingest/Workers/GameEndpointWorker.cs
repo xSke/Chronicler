@@ -40,7 +40,7 @@ namespace SIBR.Storage.Ingest
             await using (var conn = await _db.Obtain())
                simData = await _updateStore.GetLatestUpdate(conn, UpdateType.Sim);
 
-            var sim = simData.Data.Value<string>("sim") ?? "thisidisstaticyo";
+            var sim = simData.Data.Value<string>("id") ?? "thisidisstaticyo";
             var season = simData.Data.Value<int>("season");
             var tournament = simData.Data.Value<int>("tournament");
             var day = simData.Data.Value<int>("day");
@@ -78,7 +78,7 @@ namespace SIBR.Storage.Ingest
             // Flatten array of days
             var games = json.Values().SelectMany(x => x).ToList();
             
-            var maxPlayCount = games.Max(t => t["playCount"].Value<int?>() ?? -1);
+            var maxPlayCount = games.Count > 0 ? games.Max(t => t["playCount"].Value<int?>() ?? -1) : -1;
             _logger.Information("Polled games endpoint at sim {Sim} season {Season} tournament {Tournament} day {Day} (combined hash {Hash}, max PC {MaxPlayCount}, took {Duration})",
                 sim, season, tournament,
                 day, SibrHash.HashAsGuid(json), maxPlayCount, sw.Elapsed);

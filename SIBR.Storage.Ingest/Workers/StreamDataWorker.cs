@@ -43,20 +43,27 @@ namespace SIBR.Storage.Ingest
             var data = JObject.Parse(obj);
 
             await using var conn = await _db.Obtain();
-            await using var tx = await conn.BeginTransactionAsync();
-            await _updateStore.SaveUpdate(conn, EntityUpdate.From(UpdateType.Stream, _sourceId, timestamp, data));
-            
-            using var hasher = new SibrHasher();
-            var extracted = TgbUtils.ExtractUpdatesFromStreamRoot(_sourceId, timestamp, data, hasher);
-            var gameRes = await _gameStore.SaveGameUpdates(conn, extracted.GameUpdates);
-            var miscRes = await _updateStore.SaveUpdates(conn, extracted.EntityUpdates);
+            await using (var tx = await conn.BeginTransactionAsync())
+            {
+                await _updateStore.SaveUpdate(conn, EntityUpdate.From(UpdateType.Stream, _sourceId, timestamp, data));
+                await tx.CommitAsync();
+            }
 
-            var maxPlayCount = extracted.GameUpdates.Count > 0 ? extracted.GameUpdates.Max(gu => gu.PlayCount) : -1;
-            
-            _logger.Information("Received stream update, saved {GameUpdates} game updates, {MiscUpdates} updates, max PC {MaxPlayCount}", 
-                gameRes, miscRes, maxPlayCount);
-            
-            await tx.CommitAsync();
+            await using (var tx = await conn.BeginTransactionAsync())
+            {
+                using var hasher = new SibrHasher();
+                var extracted = TgbUtils.ExtractUpdatesFromStreamRoot(_sourceId, timestamp, data, hasher);
+                var gameRes = await _gameStore.SaveGameUpdates(conn, extracted.GameUpdates);
+                var miscRes = await _updateStore.SaveUpdates(conn, extracted.EntityUpdates);
+
+                var maxPlayCount = extracted.GameUpdates.Count > 0 ? extracted.GameUpdates.Max(gu => gu.PlayCount) : -1;
+
+                _logger.Information(
+                    "Received stream update, saved {GameUpdates} game updates, {MiscUpdates} updates, max PC {MaxPlayCount}",
+                    gameRes, miscRes, maxPlayCount);
+
+                await tx.CommitAsync();
+            }
         }
 
         private async Task RunStreamDataConsumer(int index)
