@@ -42,7 +42,8 @@ namespace SIBR.Storage.API.Controllers
                 Order = opts.Order,
                 Team = opts.Team,
                 Pitcher = opts.Pitcher,
-                Weather = opts.Weather
+                Weather = opts.Weather,
+                Sim = opts.Sim
             }).ToListAsync();
 
             if (opts.Format == ResponseFormat.Json)
@@ -86,6 +87,7 @@ namespace SIBR.Storage.API.Controllers
 
             public Instant? Before { get; set; }
             public Instant? After { get; set; }
+            public string? Sim { get; set; }
             public SortOrder Order { get; set; }
             public PageToken Page => null;
             public int? Count { get; set; }

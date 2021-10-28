@@ -16,7 +16,8 @@ begin
             day,
             null,
             null,
-            tournament
+            tournament,
+            coalesce(data->>'sim', 'thisidisstaticyo') as sim
         from (select unnest(recalculate_game_updates_for_hashes.hashes) as hash) as hashes
         inner join lateral (select timestamp, game_id, season, day, tournament from game_updates gu where gu.hash = hashes.hash order by timestamp limit 1) as first on true
         inner join objects on hashes.hash = objects.hash;
@@ -35,7 +36,7 @@ declare
     count int;
 begin
     delete from game_updates_unique gu where gu.game_id = any(recalculate_game_updates_for_game.game_ids);
-    insert into game_updates_unique
+    insert into game_updates_unique 
         select
             hash,
             game_id,
@@ -45,7 +46,8 @@ begin
             min(day) as day,
             null as search_tsv,
             null as play_count,
-            min(tournament) as tournament
+            min(tournament) as tournament,
+            coalesce((select data from objects o where o.hash = gu.hash)->>'sim', 'thisidisstaticyo') as sim -- lol
         from game_updates gu
         where game_id = any(recalculate_game_updates_for_game.game_ids)
         group by game_id, hash;
@@ -73,7 +75,8 @@ begin
             min(day) as day,
             null as search_tsv,
             null as play_count,
-            min(tournament) as tournament
+            min(tournament) as tournament,
+            coalesce((select data from objects o where o.hash = gu.hash)->>'sim', 'thisidisstaticyo') as sim -- lol
         from game_updates gu
         where gu.season = recalculate_game_updates_for_season.season
         group by game_id, hash;

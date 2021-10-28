@@ -10,7 +10,6 @@ using Serilog;
 using SIBR.Storage.Data.Models;
 using SIBR.Storage.Data.Query;
 using SIBR.Storage.Data.Utils;
-using SqlKata;
 
 namespace SIBR.Storage.Data
 {
@@ -39,6 +38,7 @@ namespace SIBR.Storage.Data
             if (opts.Season != null) q.Where("season", opts.Season.Value);
             if (opts.Tournament != null) q.Where("tournament", opts.Tournament.Value);
             if (opts.Day != null) q.Where("day", opts.Day.Value);
+            if (opts.Sim != null) q.Where("sim", opts.Sim);
             if (opts.Game != null) q.WhereIn("game_id", opts.Game);
             if (opts.Search != null) q.WhereRaw("search_tsv @@ websearch_to_tsquery(?)", opts.Search);
             if (opts.Started != null) q.WhereRaw("(data->>'gameStart')::bool = ?", opts.Started.Value);
@@ -74,7 +74,7 @@ namespace SIBR.Storage.Data
 
             var grouped = updates.GroupBy(u => u.Hash).ToList();
             return await conn.ExecuteAsync(@"
-insert into game_updates_unique (hash, game_id, timestamp, data, season, tournament, day, play_count, search_tsv)
+insert into game_updates_unique (hash, game_id, timestamp, data, season, tournament, day, play_count, sim, search_tsv)
     select
         hash,
         game_id,
@@ -84,6 +84,7 @@ insert into game_updates_unique (hash, game_id, timestamp, data, season, tournam
         tournament,
         day,
         case when play_count >= 0 then play_count end,
+        coalesce(data->>'sim', 'thisidisstaticyo'),
         case when @UpdateSearchIndex then to_tsvector('english', data ->> 'lastUpdate') end as search_tsv
     from (select unnest(@Hash) as hash, unnest(@GameId) as game_id, unnest(@Timestamp) as timestamp, unnest(@Season) as season, unnest(@Day) as day, unnest(@Tournament) as tournament, unnest(@PlayCount) as play_count) as new_updates
     inner join objects using (hash)
@@ -131,6 +132,7 @@ insert into game_updates_unique (hash, game_id, timestamp, data, season, tournam
             public int? Season { get; set; }
             public int? Tournament { get; set; }
             public int? Day { get; set; }
+            public string? Sim { get; set; }
             public Guid[] Game { get; set; }
             public Instant? Before { get; set; }
             public Instant? After { get; set; }

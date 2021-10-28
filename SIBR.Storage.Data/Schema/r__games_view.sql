@@ -22,7 +22,8 @@ create view games_view as
         (data->>'awayTeam')::uuid as away_team,
         (data->>'homePitcher')::uuid as home_pitcher,
         (data->>'awayPitcher')::uuid as away_pitcher,
-        (data->>'weather')::int as weather
+        (data->>'weather')::int as weather,
+        coalesce(data->>'sim', 'thisidisstaticyo') as sim
     from games g
         inner join lateral (select data from game_updates_unique gu where g.game_id = gu.game_id order by timestamp desc limit 1)
             as last_update on true
