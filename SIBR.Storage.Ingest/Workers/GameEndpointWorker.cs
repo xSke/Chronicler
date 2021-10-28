@@ -36,51 +36,54 @@ namespace SIBR.Storage.Ingest
 
         protected override async Task RunInterval()
         {
-            EntityUpdate sim;
+            EntityUpdate simData;
             await using (var conn = await _db.Obtain())
-               sim = await _updateStore.GetLatestUpdate(conn, UpdateType.Sim);
+               simData = await _updateStore.GetLatestUpdate(conn, UpdateType.Sim);
 
-            var season = sim.Data.Value<int>("season");
-            var tournament = sim.Data.Value<int>("tournament");
-            var day = sim.Data.Value<int>("day");
+            var sim = simData.Data.Value<string>("sim") ?? "thisidisstaticyo";
+            var season = simData.Data.Value<int>("season");
+            var tournament = simData.Data.Value<int>("tournament");
+            var day = simData.Data.Value<int>("day");
             
-            await FetchGamesInner(tournament, season, day);
+            await FetchGamesInner(sim, tournament, season, day);
         }
 
-        private async Task FetchGamesInner(int tournament, int season, int day)
+        private async Task FetchGamesInner(string sim, int tournament, int season, int day)
         {
-            var gameUpdates = await FetchGamesAt(tournament, season, day);
+            var gameUpdates = await FetchGamesAt(sim, tournament, season, day);
 
             await using var conn = await _db.Obtain();
-            await using (var tx = await conn.BeginTransactionAsync())
-            {
-                await _gameUpdateStore.SaveGameUpdates(conn, gameUpdates);
-                await tx.CommitAsync();
-            }
+            await using var tx = await conn.BeginTransactionAsync();
+            
+            await _gameUpdateStore.SaveGameUpdates(conn, gameUpdates);
+            await tx.CommitAsync();
         }
 
-        private async Task<List<GameUpdate>> FetchGamesAt(int tournament, int season, int day)
+        private async Task<List<GameUpdate>> FetchGamesAt(string sim, int tournament, int season, int day)
         {
             var sw = new Stopwatch();
             sw.Start();
 
             var cacheBust = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-            var url = tournament >= 0
-                ? $"https://api.blaseball.com/database/games?tournament={tournament}&day={day}&cache={cacheBust}"
-                : $"https://api.blaseball.com/database/games?season={season}&day={day}&cache={cacheBust}";
+            // TODO: games/schedule endpoint doesn't support tournament parameter... what do?
+            var url = $"https://api.blaseball.com/api/games/schedule?sim={sim}&season={season}&startDay={day}&endDay={day}&cache={cacheBust}";
             var jsonStr  = await _client.GetStringAsync(url);
             
             sw.Stop();
             var timestamp = _clock.GetCurrentInstant();
 
-            var json = JArray.Parse(jsonStr);
-            var maxPlayCount = json.Max(t => t["playCount"].Value<int>());
-            _logger.Information("Polled games endpoint at season {Season} tournament {Tournament} day {Day} (combined hash {Hash}, max PC {MaxPlayCount}, took {Duration})",
-                season, tournament,
+            var json = JObject.Parse(jsonStr);
+            
+            // Flatten array of days
+            var games = json.Values().SelectMany(x => x).ToList();
+            
+            var maxPlayCount = games.Max(t => t["playCount"].Value<int?>() ?? -1);
+            _logger.Information("Polled games endpoint at sim {Sim} season {Season} tournament {Tournament} day {Day} (combined hash {Hash}, max PC {MaxPlayCount}, took {Duration})",
+                sim, season, tournament,
                 day, SibrHash.HashAsGuid(json), maxPlayCount, sw.Elapsed);
             
-            var updates = json
+            var updates = games
                 .Select(game => GameUpdate.From(_sourceId, timestamp, game))
                 .ToList();
             return updates;

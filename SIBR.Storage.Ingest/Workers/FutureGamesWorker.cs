@@ -35,25 +35,27 @@ namespace SIBR.Storage.Ingest
         protected override async Task RunInterval()
         {
             await using var conn = await _db.Obtain();
-            var sim = await _updateStore.GetLatestUpdate(conn, UpdateType.Sim);
-            var (season, dayStart) = (sim.Data.Value<int>("season"), sim.Data.Value<int>("day"));
+            var simData = await _updateStore.GetLatestUpdate(conn, UpdateType.Sim);
+            var (sim, season) = (simData.Data.Value<string?>("sim") ?? "thisidisstaticyo", simData.Data.Value<int>("season"));
 
+            var jsonStr = await _client.GetStringAsync($"https://api.blaseball.com/api/games/schedule?sim={sim}&season={season}");
+            var timestamp = _clock.GetCurrentInstant();
+            
+            var json = JObject.Parse(jsonStr);
+            
+            // Schedule returns an object of "day" arrays
             var updates = new List<GameUpdate>();
-            for (var day = dayStart + 1; day < 100; day++)
-            {
-                var jsonStr = await _client.GetStringAsync($"https://api.blaseball.com/database/games?season={season}&day={day}");
-                var timestamp = _clock.GetCurrentInstant();
-                var json = JArray.Parse(jsonStr);
-                _logger.Information("Polled future games at season {Season} day {Day}", season, day);
-
-                updates.AddRange(json.Select(game => GameUpdate.From(_sourceId, timestamp, game)));
-            }
+            foreach (var dayArray in json.Values())
+            foreach (var gameObject in dayArray)
+                updates.Add(GameUpdate.From(_sourceId, timestamp, gameObject));
             
             await using (var tx = await conn.BeginTransactionAsync())
             {
                 await _gameUpdateStore.SaveGameUpdates(conn, updates);
                 await tx.CommitAsync();
             }
+            
+            _logger.Information("Fetched season schedule for sim {Sim} season {Season}", sim, season);
         }
     }
 }
