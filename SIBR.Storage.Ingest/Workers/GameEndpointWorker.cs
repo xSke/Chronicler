@@ -66,17 +66,14 @@ namespace SIBR.Storage.Ingest
 
             var cacheBust = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-            // TODO: games/schedule endpoint doesn't support tournament parameter... what do?
-            var url = $"https://api.blaseball.com/api/games/schedule?sim={sim}&season={season}&startDay={day}&endDay={day}&cache={cacheBust}";
+            var url = $"https://api.blaseball.com/database/games?season={season}&day={day}&tournament={tournament}&cache={cacheBust}";
             var jsonStr  = await _client.GetStringAsync(url);
             
             sw.Stop();
             var timestamp = _clock.GetCurrentInstant();
 
-            var json = JObject.Parse(jsonStr);
-            
-            // Flatten array of days
-            var games = json.Values().SelectMany(x => x).ToList();
+            var json = JArray.Parse(jsonStr);
+            var games = json.Where(g => g["sim"].Value<string?>() == sim).ToList();
             
             var maxPlayCount = games.Count > 0 ? games.Max(t => t["playCount"].Value<int?>() ?? -1) : -1;
             _logger.Information("Polled games endpoint at sim {Sim} season {Season} tournament {Tournament} day {Day} (combined hash {Hash}, max PC {MaxPlayCount}, took {Duration})",
