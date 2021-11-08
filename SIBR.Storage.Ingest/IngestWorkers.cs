@@ -20,6 +20,7 @@ namespace SIBR.Storage.Ingest
                 new RenovationsWorker(services, config.RenovationsWorker, config.SourceId),
                 new TeamElectionWorker(services, config.TeamElectionWorker, config.SourceId),
                 new LibraryStoryWorker(services, config.LibraryStoryWorker, config.SourceId),
+                new AvailableBetsWorker(services, config.AvailableBetsWorker, config.SourceId),
                 new FeedWorker(services, config.FeedWorker)
             };
             workers.AddRange(config.MiscEndpointWorkers.Select(workerConfig => new MiscEndpointWorker(services, workerConfig, config.SourceId)));
