@@ -54,6 +54,7 @@
         TheBeat = 51,
         TheBook = 52,
         ChampionCallout = 53,
-        DaysSinceLastIncineration = 54
+        DaysSinceLastIncineration = 54,
+        AvailableChampionBets = 55
     }
 }
