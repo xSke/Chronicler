@@ -55,6 +55,7 @@
         TheBook = 52,
         ChampionCallout = 53,
         DaysSinceLastIncineration = 54,
-        AvailableChampionBets = 55
+        AvailableChampionBets = 55,
+        PeanutPower = 56
     }
 }
