@@ -37,7 +37,7 @@ namespace SIBR.Storage.Ingest
             var (season, dayStart) = (simData.Data.Value<int>("season"), simData.Data.Value<int>("day"));
 
             var updates = new List<GameUpdate>();
-            for (var day = dayStart + 1; day < 200; day++)
+            for (var day = dayStart + 1; day < 250; day++)
             {
                 var jsonStr = await _client.GetStringAsync($"https://api.blaseball.com/database/games?season={season}&day={day}");
                 var timestamp = _clock.GetCurrentInstant();
