@@ -16,7 +16,7 @@ namespace SIBR.Storage.Ingest
                 new FutureGamesWorker(services, config.FutureGamesWorker, config.SourceId),
                 new StatsheetsWorker(services, config.StatsheetsWorker, config.SourceId),
                 new ElectionResultsWorker(services, config.ElectionResultsWorker, config.SourceId),
-                new StreamDataWorker(services, config.StreamCount, config.SourceId),
+                // new StreamDataWorker(services, config.StreamCount, config.SourceId), (crab emoji)
                 new RenovationsWorker(services, config.RenovationsWorker, config.SourceId),
                 new TeamElectionWorker(services, config.TeamElectionWorker, config.SourceId),
                 new LibraryStoryWorker(services, config.LibraryStoryWorker, config.SourceId),
