@@ -49,6 +49,7 @@ namespace SIBR.Storage.Data
                 .AddSingleton<TimeStore>()
                 .AddSingleton<FeedStore>()
                 .AddSingleton<VersionStore>()
+                .AddSingleton<PusherEventStore>()
                 .AddSingleton<IClock>(SystemClock.Instance);
         }
         
