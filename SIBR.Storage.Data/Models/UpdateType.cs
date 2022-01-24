@@ -56,6 +56,9 @@
         ChampionCallout = 53,
         DaysSinceLastIncineration = 54,
         AvailableChampionBets = 55,
-        PeanutPower = 56
+        PeanutPower = 56,
+        GammaElections = 57,
+        GammaElectionDetails = 58,
+        GammaElection = 59
     }
 }

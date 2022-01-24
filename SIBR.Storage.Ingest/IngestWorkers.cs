@@ -21,7 +21,8 @@ namespace SIBR.Storage.Ingest
                 new TeamElectionWorker(services, config.TeamElectionWorker, config.SourceId),
                 new LibraryStoryWorker(services, config.LibraryStoryWorker, config.SourceId),
                 new AvailableBetsWorker(services, config.AvailableBetsWorker, config.SourceId),
-                new FeedWorker(services, config.FeedWorker)
+                new FeedWorker(services, config.FeedWorker),
+                new GammaElectionsWorker(services, config.GammaElectionsWorker, config.SourceId),
             };
             workers.AddRange(config.MiscEndpointWorkers.Select(workerConfig => new MiscEndpointWorker(services, workerConfig, config.SourceId)));
             return workers;
