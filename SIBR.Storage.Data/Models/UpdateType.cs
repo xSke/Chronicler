@@ -59,6 +59,7 @@
         PeanutPower = 56,
         GammaElections = 57,
         GammaElectionDetails = 58,
-        GammaElection = 59
+        GammaElection = 59,
+        GammaSim = 60
     }
 }
