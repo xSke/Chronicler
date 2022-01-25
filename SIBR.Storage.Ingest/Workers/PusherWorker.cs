@@ -133,7 +133,13 @@ namespace SIBR.Storage.Ingest
                 var payload = JsonConvert.DeserializeObject<JToken>(data);
 
                 if (payload is JObject jo && jo.Count == 1 && jo.TryGetValue("message", out var message))
-                    return DecodeCompressedPayload(message.Value<string>());
+                {
+                    var inner = message.Value<string>();
+                    if (inner.StartsWith("\""))
+                        inner = JsonConvert.DeserializeObject<string>(inner);
+
+                    return DecodeCompressedPayload(inner);
+                }
 
                 return payload;
             }
