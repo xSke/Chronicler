@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NodaTime;
 using SIBR.Storage.Data.Models;
@@ -19,7 +21,39 @@ namespace SIBR.Storage.Data.Utils
             var keyBytes = Encoding.UTF8.GetBytes(key);
             return SibrHash.HashAsGuid(keyBytes);
         }
+
+        public static JToken TryDecodePusherData(string input)
+        {
+            var data = JsonConvert.DeserializeObject<JToken>(input);
+            
+            try
+            {
+                if (data is JObject jo && jo.Count == 1 && jo.TryGetValue("message", out var message))
+                {
+                    var inner = message.Value<string>();
+                    if (inner.StartsWith("\""))
+                        inner = JsonConvert.DeserializeObject<string>(inner);
+
+                    return DecodeCompressedPayload(inner);
+                }
+
+                return input;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
         
+        private static JToken DecodeCompressedPayload(string payload)
+        {
+            var bytes = Convert.FromBase64String(payload);
+            using var ms = new MemoryStream(bytes);
+            using var gs = new GZipStream(ms, CompressionMode.Decompress);
+            using var r = new StreamReader(gs, Encoding.UTF8);
+            return JsonConvert.DeserializeObject<JToken>(r.ReadToEnd());
+        }
+
         public static Guid GetId(JObject obj)
         {
             if (obj.ContainsKey("_id"))

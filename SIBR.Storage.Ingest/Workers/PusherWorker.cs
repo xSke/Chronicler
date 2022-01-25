@@ -1,18 +1,14 @@
 ﻿using System;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Newtonsoft.Json.Serialization;
 using NodaTime;
 using PusherClient;
 using SIBR.Storage.Data;
 using SIBR.Storage.Data.Models;
+using SIBR.Storage.Data.Utils;
 using SIBR.Storage.Ingest.Utils;
 
 namespace SIBR.Storage.Ingest
@@ -54,24 +50,35 @@ namespace SIBR.Storage.Ingest
             };
             
             await _pusher.ConnectAsync();
-            await _pusher.SubscribeAsync("sim-data");
-            await _pusher.SubscribeAsync("temporal");
-            await _pusher.SubscribeAsync("ticker");
+            await Task.WhenAll(
+                _pusher.SubscribeAsync("sim-data"),
+                _pusher.SubscribeAsync("temporal"),
+                _pusher.SubscribeAsync("ticker")
+            );
             
             _pusher.BindAll(GlobalHandler);
             _pusher.Bind("sim-data", WrapHandler(SimDataHandler));
             _pusher.Bind("temporal-message", WrapHandler(TemporalHandler));
             _pusher.Bind("ticker-message", WrapHandler(TickerHandler));
+            _pusher.Bind("game-data", WrapHandler(GameDataHandler));
 
             // Wait forever
             await SubscribeLoop();
         }
-
+        
         private async Task SubscribeToGames(int season, int day, string sim)
         {
             var (_, games) = await _client.GetJsonAsync($"https://api.blaseball.com/database/games?season={season}&day={day}");
-            var filtered = games.Where(g => g["sim"].Value<string>() == sim);
-            var tasks = filtered.Select(g => _pusher.SubscribeAsync($"game-feed-{g["id"]?.Value<string>()}"));
+            
+            // Only subscribe to games from this sim, that aren't already done
+            var filtered = games.Where(g => 
+                g["sim"].Value<string>() == sim && !g["finalized"].Value<bool>());
+            
+            var tasks = filtered.Select(g =>
+            {
+                var gameId = g["id"]!.ToObject<Guid>();
+                return _pusher.SubscribeAsync(GetGameChannel(gameId));
+            });
             await Task.WhenAll(tasks);
         }
         
@@ -110,7 +117,7 @@ namespace SIBR.Storage.Ingest
                 
                 try
                 {
-                    var data = TryDecode(evt.Data);
+                    var data = TgbUtils.TryDecodePusherData(evt.Data);
                     await _pusherEventStore.SaveEvent(evt.ChannelName, evt.EventName, timestamp, data, evt.Data);
                 }
                 catch (Exception e)
@@ -122,43 +129,6 @@ namespace SIBR.Storage.Ingest
             // Fork
             var __ = Inner();
         }
-        
-        private JToken TryDecode(string data)
-        {
-            try
-            {
-                if (data.StartsWith("\""))
-                    data = JsonConvert.DeserializeObject<string>(data);
-
-                var payload = JsonConvert.DeserializeObject<JToken>(data);
-
-                if (payload is JObject jo && jo.Count == 1 && jo.TryGetValue("message", out var message))
-                {
-                    var inner = message.Value<string>();
-                    if (inner.StartsWith("\""))
-                        inner = JsonConvert.DeserializeObject<string>(inner);
-
-                    return DecodeCompressedPayload(inner);
-                }
-
-                return payload;
-            }
-            catch (Exception e)
-            {
-                _logger.Error(e, "Error decoding Pusher {Payload}", data);
-            }
-
-            return null;
-        }
-
-        private JToken DecodeCompressedPayload(string payload)
-        {
-            var bytes = Convert.FromBase64String(payload);
-            using var ms = new MemoryStream(bytes);
-            using var gs = new GZipStream(ms, CompressionMode.Decompress);
-            using var r = new StreamReader(gs, Encoding.UTF8);
-            return JsonConvert.DeserializeObject<JToken>(r.ReadToEnd());
-        }
 
         private Action<PusherEvent> WrapHandler(Func<JToken, Task> inner)
         {
@@ -166,10 +136,10 @@ namespace SIBR.Storage.Ingest
             {
                 try
                 {
-                    _logger.Information("Received Pusher event {EventName} on {ChannelName}: {Data}", evt.EventName,
+                    _logger.Verbose("Received Pusher event {EventName} on {ChannelName}: {Data}", evt.EventName,
                         evt.ChannelName, evt.Data);
 
-                    var data = TryDecode(evt.Data);
+                    var data = TgbUtils.TryDecodePusherData(evt.Data);
                     await inner(data);
                 }
                 catch (Exception e)
@@ -214,5 +184,21 @@ namespace SIBR.Storage.Ingest
             await _updateStore.SaveUpdate(conn, update);
             _logger.Information("Pulled GlobalEvents based on Pusher event");
         }
+        
+        private async Task GameDataHandler(JToken obj)
+        {
+            var data = obj[0];
+            var gameId = data["gameId"]!.ToObject<Guid>();
+            var eventType = data["eventType"]!.ToObject<int>();
+
+            if (eventType == 216)
+            {
+                _logger.Information("Game {GameId} ended, unsubscribing from Pusher", gameId);
+                await _pusher.UnsubscribeAsync(GetGameChannel(gameId));
+            }
+        }
+
+        private string GetGameChannel(Guid gameId) =>
+            $"game-feed-{gameId}";
     }
 }
