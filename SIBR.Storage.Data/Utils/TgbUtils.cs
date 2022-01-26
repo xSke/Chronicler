@@ -33,11 +33,14 @@ namespace SIBR.Storage.Data.Utils
                     var inner = message.Value<string>();
                     if (inner.StartsWith("\""))
                         inner = JsonConvert.DeserializeObject<string>(inner);
+                    
+                    if (inner.StartsWith("{") || inner.StartsWith("["))
+                        return JsonConvert.DeserializeObject<JToken>(inner);
 
                     return DecodeCompressedPayload(inner);
                 }
 
-                return input;
+                return data;
             }
             catch (Exception)
             {

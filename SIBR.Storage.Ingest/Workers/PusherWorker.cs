@@ -158,10 +158,10 @@ namespace SIBR.Storage.Ingest
         private async Task SimDataHandler(JToken obj)
         {
             var (timestamp, data) = await _client.GetJsonAsync("https://api.blaseball.com/database/simulationData");
-            var update = EntityUpdate.From(UpdateType.Sim, _sourceId, timestamp, data);
             
             await using var conn = await _db.Obtain();
-            await _updateStore.SaveUpdate(conn, update);
+            await _updateStore.SaveUpdate(conn, EntityUpdate.From(UpdateType.Sim, _sourceId, timestamp, data));
+            await _updateStore.SaveUpdate(conn, EntityUpdate.From(UpdateType.GammaSim, _sourceId, timestamp, obj));
             _logger.Information("Pulled SimData based on Pusher event");
         }
         
