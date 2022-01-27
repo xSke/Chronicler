@@ -60,6 +60,7 @@
         GammaElections = 57,
         GammaElectionDetails = 58,
         GammaElection = 59,
-        GammaSim = 60
+        GammaSim = 60,
+        GammaElectionResults = 61
     }
 }

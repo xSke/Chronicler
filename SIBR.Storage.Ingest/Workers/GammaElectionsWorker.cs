@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -33,34 +32,57 @@ namespace SIBR.Storage.Ingest
 
         protected override async Task RunInterval()
         {
+            var info = await FetchElectionInfo();
+            var splitInfo = SplitElectionInfo(info);
+            _logger.Information("Fetched {ElectionCount} gamma elections", splitInfo.Count);
+
+            var detailsTasks = splitInfo
+                .Select(u => u.Data["id"]!.ToObject<Guid>())
+                .Select(FetchElectionDetails);
+            var details = await Task.WhenAll(detailsTasks);
+            _logger.Information("Fetched {DetailsCount} gamma election details", details.Length);
+
+            var resultsTasks = details
+                .SelectMany(u => u.Data as JArray)
+                .Where(u => u["executed"]!.ToObject<bool>())
+                .Select(u => u["id"]!.ToObject<Guid>())
+                .Select(FetchElectionResults);
+            var results = await Task.WhenAll(resultsTasks);
+            _logger.Information("Fetched {ResultsCount} gamma election results", results.Length);
+
+            await using var conn = await _db.Obtain();
+            await _updateStore.SaveUpdate(conn, info);
+            await _updateStore.SaveUpdates(conn, splitInfo);
+            await _updateStore.SaveUpdates(conn, details);
+            await _updateStore.SaveUpdates(conn, results);
+            _logger.Information("Saved gamma election data");
+        }
+        
+        private async Task<EntityUpdate> FetchElectionInfo()
+        {
             var (timestamp, data) = await _client.GetJsonAsync("https://api.blaseball.com/api/elections");
-            await using (var conn = await _db.Obtain())
-            {
-                var elections = EntityUpdate.From(UpdateType.GammaElections, _sourceId, timestamp, data);
-                await _updateStore.SaveUpdate(conn, elections);
+            return EntityUpdate.From(UpdateType.GammaElections, _sourceId, timestamp, data);
+        }
+        
+        private List<EntityUpdate> SplitElectionInfo(EntityUpdate root) => 
+            EntityUpdate.FromArray(UpdateType.GammaElection, _sourceId, root.Timestamp, root.Data).ToList();
 
-                var electionsIndividual = EntityUpdate.FromArray(UpdateType.GammaElection, _sourceId, timestamp, data);
-                await _updateStore.SaveUpdates(conn, electionsIndividual.ToList());
-                _logger.Information("Saved gamma elections");
-            }
+        private async Task<EntityUpdate> FetchElectionDetails(Guid electionId)
+        {
+            var (electionTimestamp, electionData) =
+                await _client.GetJsonAsync($"https://api.blaseball.com/api/elections/{electionId}");
 
-            var electionDetails = new List<EntityUpdate>();
-            foreach (var election in data)
-            {
-                var electionId = election["id"]!.ToObject<Guid>();
-                var (electionTimestamp, electionData) =
-                    await _client.GetJsonAsync($"https://api.blaseball.com/api/elections/{electionId}");
+            return EntityUpdate.From(UpdateType.GammaElectionDetails, _sourceId, electionTimestamp,
+                electionData, idOverride: electionId);
+        }
+        
+        private async Task<EntityUpdate> FetchElectionResults(Guid prizeId)
+        {
+            var (timestamp, data) =
+                await _client.GetJsonAsync($"https://api.blaseball.com/api/elections/{prizeId}/results");
 
-                var update = EntityUpdate.From(UpdateType.GammaElectionDetails, _sourceId, electionTimestamp,
-                    electionData, idOverride: electionId);
-                electionDetails.Add(update);
-            }
-            
-            await using (var conn = await _db.Obtain())
-            {
-                await _updateStore.SaveUpdates(conn, electionDetails);
-                _logger.Information("Saved {ElectionCount} gamma election details", electionDetails.Count);
-            }
+            return EntityUpdate.From(UpdateType.GammaElectionResults, _sourceId, timestamp,
+                data, idOverride: prizeId);
         }
     }
 }
