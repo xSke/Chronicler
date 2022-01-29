@@ -29,6 +29,7 @@ namespace SIBR.Storage.Ingest
             _pusher = new Pusher("ddb8c477293f80ee9c63", new PusherOptions
             {
                 Cluster = "us3",
+                Authorizer = new HttpAuthorizer("https://api.blaseball.com/api/pusher/auth")
             });
             _db = services.GetRequiredService<Database>();
             _updateStore = services.GetRequiredService<UpdateStore>();
@@ -74,10 +75,11 @@ namespace SIBR.Storage.Ingest
             var filtered = games.Where(g => 
                 g["sim"].Value<string>() == sim && !g["finalized"].Value<bool>());
             
-            var tasks = filtered.Select(g =>
+            var tasks = filtered.Select(async g =>
             {
                 var gameId = g["id"]!.ToObject<Guid>();
-                return _pusher.SubscribeAsync(GetGameChannel(gameId));
+                await _pusher.SubscribeAsync(GetGameChannel(gameId));
+                await _pusher.SubscribeAsync(GetCheerChannel(gameId));
             });
             await Task.WhenAll(tasks);
         }
@@ -195,10 +197,16 @@ namespace SIBR.Storage.Ingest
             {
                 _logger.Information("Game {GameId} ended, unsubscribing from Pusher", gameId);
                 await _pusher.UnsubscribeAsync(GetGameChannel(gameId));
+                
+                // TODO: unsubscribe from cheer channels
             }
         }
 
         private string GetGameChannel(Guid gameId) =>
             $"game-feed-{gameId}";
+
+
+        private string GetCheerChannel(Guid gameId) =>
+            $"private-cheer-{gameId}";
     }
 }
