@@ -9,7 +9,7 @@ namespace SIBR.Storage.API.Models
         public Instant Timestamp { get; set; }
         public string Channel { get; set; }
         public string Event { get; set; }
-        public JsonElement Data { get; set; }
+        public JsonElement? Data { get; set; }
 
         public ApiPusherEvent(PusherEvent db)
         {
