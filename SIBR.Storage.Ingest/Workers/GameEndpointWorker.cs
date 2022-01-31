@@ -42,7 +42,8 @@ namespace SIBR.Storage.Ingest
 
             var sim = simData.Data.Value<string>("id") ?? "thisidisstaticyo";
             var season = simData.Data.Value<int>("season");
-            var tournament = simData.Data.Value<int>("tournament");
+            // var tournament = simData.Data.Value<int>("tournament");
+            var tournament = -1;
             var day = simData.Data.Value<int>("day");
             
             await FetchGamesInner(sim, tournament, season, day);
