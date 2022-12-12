@@ -42,13 +42,35 @@ namespace SIBR.Storage.Data
             var q = new SqlKata.Query("versions")
                 .Select("*")
                 .Join("objects", "versions.hash", "objects.hash")
-                .Where("type", type)
-                .OrderBy("entity_id");
+                .Where("type", type);
             
             // Specifically don't do a time-based sort here, only by entity ID
             // so shifts in the current version don't break things
             if (ps.Page != null) 
                 q.Where("entity_id", ">", ps.Page.EntityId);
+
+            if (ps.At != null)
+                q.Where("valid_from", "<=", ps.At).WhereRaw("coalesce(valid_to, 'infinity') > ?", ps.At);
+            else
+                q.WhereNull("valid_to");
+
+            if (ps.Id != null)
+                q.WhereIn("entity_id", ps.Id);
+
+            if (ps.Count != null)
+                q.Limit(ps.Count.Value);
+
+            return conn.QueryKataAsync<EntityVersion>(q);
+        }
+
+        public IAsyncEnumerable<EntityVersion> GetUpdates(NpgsqlConnection conn, UpdateQuery ps)
+        {
+            var q = new SqlKata.Query("updates")
+                .Select("*")
+                .Join("objects", "updates.hash", "objects.hash")
+                .Where("type", ps.Types)
+                .ApplySorting(ps, "timestamp", "update_id")
+                .ApplyBounds(ps, "timestamp");
 
             if (ps.At != null)
                 q.Where("valid_from", "<=", ps.At).WhereRaw("coalesce(valid_to, 'infinity') > ?", ps.At);
@@ -121,6 +143,17 @@ namespace SIBR.Storage.Data
         public class VersionQuery: IPaginatedQuery, IBoundedQuery<Instant>
         {
             public Guid[]? Id { get; set; }
+            public Instant? Before { get; set; }
+            public Instant? After { get; set; }
+            public int? Count { get; set; }
+            public SortOrder Order { get; set;  }
+            public PageToken Page { get; set; }
+        }
+        
+        public class UpdateQuery: IPaginatedQuery, IBoundedQuery<Instant>
+        {
+            public Guid[]? Id { get; set; }
+            public UpdateType[]? Id { get; set; }
             public Instant? Before { get; set; }
             public Instant? After { get; set; }
             public int? Count { get; set; }
