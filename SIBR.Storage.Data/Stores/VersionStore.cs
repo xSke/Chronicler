@@ -63,19 +63,17 @@ namespace SIBR.Storage.Data
             return conn.QueryKataAsync<EntityVersion>(q);
         }
 
-        public IAsyncEnumerable<EntityVersion> GetUpdates(NpgsqlConnection conn, UpdateQuery ps)
+        public IAsyncEnumerable<EntityUpdateResponse> GetUpdates(NpgsqlConnection conn, UpdateQuery ps)
         {
+            Console.WriteLine("Got {0} IDs", ps.Type.Length);
             var q = new SqlKata.Query("updates")
                 .Select("*")
                 .Join("objects", "updates.hash", "objects.hash")
-                .Where("type", ps.Types)
                 .ApplySorting(ps, "timestamp", "update_id")
                 .ApplyBounds(ps, "timestamp");
 
-            if (ps.At != null)
-                q.Where("valid_from", "<=", ps.At).WhereRaw("coalesce(valid_to, 'infinity') > ?", ps.At);
-            else
-                q.WhereNull("valid_to");
+            if (ps.Type != null)
+                q.WhereIn("type", ps.Type);
 
             if (ps.Id != null)
                 q.WhereIn("entity_id", ps.Id);
@@ -83,7 +81,7 @@ namespace SIBR.Storage.Data
             if (ps.Count != null)
                 q.Limit(ps.Count.Value);
 
-            return conn.QueryKataAsync<EntityVersion>(q);
+            return conn.QueryKataAsync<EntityUpdateResponse>(q);
         }
         
         public async Task RebuildAll(NpgsqlConnection conn, UpdateType type)
@@ -153,7 +151,7 @@ namespace SIBR.Storage.Data
         public class UpdateQuery: IPaginatedQuery, IBoundedQuery<Instant>
         {
             public Guid[]? Id { get; set; }
-            public UpdateType[]? Id { get; set; }
+            public UpdateType[]? Type { get; set; }
             public Instant? Before { get; set; }
             public Instant? After { get; set; }
             public int? Count { get; set; }
