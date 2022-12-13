@@ -42,7 +42,8 @@ namespace SIBR.Storage.Data
             var q = new SqlKata.Query("versions")
                 .Select("*")
                 .Join("objects", "versions.hash", "objects.hash")
-                .Where("type", type);
+                .Where("type", type)
+                .OrderBy("entity_id");
             
             // Specifically don't do a time-based sort here, only by entity ID
             // so shifts in the current version don't break things
