@@ -63,6 +63,26 @@ namespace SIBR.Storage.Data
 
             return conn.QueryKataAsync<EntityVersion>(q);
         }
+
+        public IAsyncEnumerable<EntityObservationResponse> GetObservations(NpgsqlConnection conn, ObservationQuery ps)
+        {
+            var q = new SqlKata.Query("updates")
+                .Select("*")
+                .Join("objects", "updates.hash", "objects.hash")
+                .ApplySorting(ps, "timestamp", "update_id")
+                .ApplyBounds(ps, "timestamp");
+
+            if (ps.Type != null)
+                q.WhereIn("type", ps.Type);
+
+            if (ps.Id != null)
+                q.WhereIn("entity_id", ps.Id);
+
+            if (ps.Count != null)
+                q.Limit(ps.Count.Value);
+
+            return conn.QueryKataAsync<EntityObservationResponse>(q);
+        }
         
         public async Task RebuildAll(NpgsqlConnection conn, UpdateType type)
         {
@@ -121,6 +141,17 @@ namespace SIBR.Storage.Data
         public class VersionQuery: IPaginatedQuery, IBoundedQuery<Instant>
         {
             public Guid[]? Id { get; set; }
+            public Instant? Before { get; set; }
+            public Instant? After { get; set; }
+            public int? Count { get; set; }
+            public SortOrder Order { get; set;  }
+            public PageToken Page { get; set; }
+        }
+        
+        public class ObservationQuery: IPaginatedQuery, IBoundedQuery<Instant>
+        {
+            public Guid[]? Id { get; set; }
+            public UpdateType[]? Type { get; set; }
             public Instant? Before { get; set; }
             public Instant? After { get; set; }
             public int? Count { get; set; }
