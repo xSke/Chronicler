@@ -15,27 +15,27 @@ namespace SIBR.Storage.API.Controllers.v2
     [ApiController]
     [ApiVersion("2.0")]
     [Route("v{version:apiVersion}")]
-    public class UpdatesController: ControllerBase
+    public class ObservationsController: ControllerBase
     {
         private readonly Database _db;
         private readonly VersionStore _versionStore;
 
-        public UpdatesController(VersionStore versionStore, Database db)
+        public ObservationsController(VersionStore versionStore, Database db)
         {
             _versionStore = versionStore;
             _db = db;
         }
 
-        [Route("updates")]
-        public async Task<IActionResult> GetUpdates([FromQuery] ApiUpdatesQuery args)
+        [Route("observations")]
+        public async Task<IActionResult> GetObservations([FromQuery] ApiUpdatesQuery args)
         {
             await using var conn = await _db.Obtain();
-            var entities = _versionStore.GetUpdates(conn, args.ToDbQuery());
+            var entities = _versionStore.GetObservations(conn, args.ToDbQuery());
 
             var list = await entities.ToListAsync();
-            return Ok(new ApiResponsePaginatedV2<ApiUpdateV2>
+            return Ok(new ApiResponsePaginatedV2<ApiObservationV2>
             {
-                Items = list.Select(e => new ApiUpdateV2(e)),
+                Items = list.Select(e => new ApiObservationV2(e)),
                 NextPage = list.LastOrDefault()?.NextPage
             });
         }
@@ -52,7 +52,7 @@ namespace SIBR.Storage.API.Controllers.v2
             public SortOrder Order { get; set; }
             public PageToken Page { get; set; }
 
-            public VersionStore.UpdateQuery ToDbQuery() => new VersionStore.UpdateQuery
+            public VersionStore.ObservationQuery ToDbQuery() => new VersionStore.ObservationQuery
             {
                 Id = Id,
                 Type = Type,

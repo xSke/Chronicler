@@ -64,9 +64,8 @@ namespace SIBR.Storage.Data
             return conn.QueryKataAsync<EntityVersion>(q);
         }
 
-        public IAsyncEnumerable<EntityUpdateResponse> GetUpdates(NpgsqlConnection conn, UpdateQuery ps)
+        public IAsyncEnumerable<EntityObservationResponse> GetObservations(NpgsqlConnection conn, ObservationQuery ps)
         {
-            Console.WriteLine("Got {0} IDs", ps.Type.Length);
             var q = new SqlKata.Query("updates")
                 .Select("*")
                 .Join("objects", "updates.hash", "objects.hash")
@@ -82,7 +81,7 @@ namespace SIBR.Storage.Data
             if (ps.Count != null)
                 q.Limit(ps.Count.Value);
 
-            return conn.QueryKataAsync<EntityUpdateResponse>(q);
+            return conn.QueryKataAsync<EntityObservationResponse>(q);
         }
         
         public async Task RebuildAll(NpgsqlConnection conn, UpdateType type)
@@ -149,7 +148,7 @@ namespace SIBR.Storage.Data
             public PageToken Page { get; set; }
         }
         
-        public class UpdateQuery: IPaginatedQuery, IBoundedQuery<Instant>
+        public class ObservationQuery: IPaginatedQuery, IBoundedQuery<Instant>
         {
             public Guid[]? Id { get; set; }
             public UpdateType[]? Type { get; set; }

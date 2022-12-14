@@ -5,7 +5,7 @@ using SIBR.Storage.Data.Query;
 
 namespace SIBR.Storage.Data.Models
 {
-    public class EntityUpdateResponse
+    public class EntityObservationResponse
     {
         public UpdateType Type { get; set; }
         public Guid EntityId { get; set; }

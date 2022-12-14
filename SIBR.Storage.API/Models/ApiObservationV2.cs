@@ -5,7 +5,7 @@ using SIBR.Storage.Data.Models;
 
 namespace SIBR.Storage.API.Models
 {
-    public class ApiUpdateV2
+    public class ApiObservationV2
     {
         public string Type { get; set; }
         public Guid EntityId { get; set; }
@@ -14,7 +14,7 @@ namespace SIBR.Storage.API.Models
         public JsonElement Data { get; set; }
 
 
-        public ApiUpdateV2(EntityUpdateResponse update)
+        public ApiObservationV2(EntityObservationResponse update)
         {
             Type = update.Type.ToString();
             EntityId = update.EntityId;
