@@ -66,10 +66,21 @@ namespace SIBR.Storage.Data
 
         public IAsyncEnumerable<EntityObservationResponse> GetObservations(NpgsqlConnection conn, ObservationQuery ps)
         {
-            var q = new SqlKata.Query("updates")
+            var with_q = new SqlKata.Query("updates")
+                .Select("type", "entity_id", "hash", "timestamp");
+
+            if (ps.Type == null || ps.Type.Contains(UpdateType.Game)) {
+                var games_q = new SqlKata.Query("game_updates")
+                    .SelectRaw("4 as type, game_id as entity_id, hash, timestamp");
+
+                with_q = with_q.Union(games_q);
+            }
+
+            var q = new SqlKata.Query("combined_updates")
                 .Select("*")
-                .Join("objects", "updates.hash", "objects.hash")
-                .ApplySorting(ps, "timestamp", "update_id")
+                .With("combined_updates", with_q)
+                .Join("objects", "combined_updates.hash", "objects.hash")
+                .ApplySorting(ps, "timestamp", "entity_id")
                 .ApplyBounds(ps, "timestamp");
 
             if (ps.Type != null)
