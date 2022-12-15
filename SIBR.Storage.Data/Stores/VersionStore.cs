@@ -71,7 +71,7 @@ namespace SIBR.Storage.Data
 
             if (ps.Type == null || ps.Type.Contains(UpdateType.Game)) {
                 var games_q = new SqlKata.Query("game_updates")
-                    .SelectRaw("4 as type, game_id as entity_id, hash, timestamp");
+                    .SelectRaw(String.Format("{0:D} as type, game_id as entity_id, hash, timestamp", UpdateType.Game));
 
                 with_q = with_q.Union(games_q);
             }
