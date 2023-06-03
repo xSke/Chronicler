@@ -183,7 +183,7 @@ namespace SIBR.Storage.CLI.Export
 
                 _logger.Information("Starting read...");
 
-                var buf = new StringBuilder();
+                var buf = new MemoryStream();
                 var bufCount = 0;
                 while (await reader.StartRowAsync() > -1)
                 {
@@ -197,22 +197,22 @@ namespace SIBR.Storage.CLI.Export
 
                         if (bufCount > 0)
                         {
-                            await zstd.WriteAsync(Encoding.UTF8.GetBytes(buf.ToString()));
-                            buf.Clear();
+                            await zstd.WriteAsync(buf.ToArray());
+                            buf.SetLength(0);
                             bufCount = 0;
                         }
                     }
 
                     var obj = mapper(reader);
-                    buf.AppendLine(JsonConvert.SerializeObject(obj));
+                    buf.Write(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(obj));
                     bufCount++;
                     rows++;
                 }
                 
                 if (bufCount > 0)
                 {
-                    await zstd.WriteAsync(Encoding.UTF8.GetBytes(buf.ToString()));
-                    buf.Clear();
+                    await zstd.WriteAsync(buf.ToArray());
+                    buf.SetLength(0);
                 }
                 
                 _logger.Information("Done exporting {Table}.", table);
