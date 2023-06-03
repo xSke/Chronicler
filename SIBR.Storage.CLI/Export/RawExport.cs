@@ -205,6 +205,7 @@ namespace SIBR.Storage.CLI.Export
 
                     var obj = mapper(reader);
                     buf.Write(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(obj));
+                    buf.WriteByte(0x0a);
                     bufCount++;
                     rows++;
                 }
