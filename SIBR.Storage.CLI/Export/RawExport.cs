@@ -32,9 +32,9 @@ namespace SIBR.Storage.CLI.Export
         {
             try
             {
-                // await ExportAllUpdates(Path.Join(opts.Directory, "updates.ndjson"));
+                await ExportAllUpdates(Path.Join(opts.Directory, "updates.ndjson"));
                 // await ExportAllObjects(Path.Join(opts.Directory, "objects.ndjson"));
-                await ExportAllBinaryObjects(Path.Join(opts.Directory, "binary_objects.ndjson"));
+                // await ExportAllBinaryObjects(Path.Join(opts.Directory, "binary_objects.ndjson"));
                 // await ExportAllGameUpdates(Path.Join(opts.Directory, "game_updates.ndjson"));
                 // await ExportAllSiteUpdates(Path.Join(opts.Directory, "site_updates.ndjson"));
                 // await ExportAllFeed(Path.Join(opts.Directory, "feed.ndjson"));
