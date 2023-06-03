@@ -63,7 +63,7 @@ namespace SIBR.Storage.CLI.Export
                 else reader.Skip();
 
                 return su;
-            }, 1000);
+            }, 5000);
         }
 
         private async Task ExportAllBinaryObjects(string filename)
@@ -72,7 +72,7 @@ namespace SIBR.Storage.CLI.Export
             {
                 Hash = reader.Read<Guid>(NpgsqlDbType.Uuid),
                 Data = reader.Read<byte[]>(NpgsqlDbType.Bytea)
-            }, 1000);
+            }, 5000);
         }
 
         private async Task ExportAllGameUpdates(string filename)
@@ -86,7 +86,7 @@ namespace SIBR.Storage.CLI.Export
                 Season = reader.Read<short>(NpgsqlDbType.Smallint),
                 Day = reader.Read<short>(NpgsqlDbType.Smallint),
                 Tournament = reader.Read<short>(NpgsqlDbType.Smallint)
-            }, 50000);
+            }, 250000);
         }
 
         private async Task ExportAllObjects(string filename)
@@ -124,7 +124,7 @@ namespace SIBR.Storage.CLI.Export
                 EntityId = reader.Read<Guid>(NpgsqlDbType.Uuid),
                 SourceId = reader.Read<Guid>(NpgsqlDbType.Uuid),
                 UpdateId = reader.Read<Guid>(NpgsqlDbType.Uuid),
-            }, 50000);
+            }, 250000);
         }
 
         private async Task ExportAllFeed(string filename)
