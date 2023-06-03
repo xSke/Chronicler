@@ -176,8 +176,7 @@ namespace SIBR.Storage.CLI.Export
             await using var reader = conn.BeginBinaryExport($"copy {table} to stdout (format binary)");
 
             await using var file = File.Open(filename + ".zst", FileMode.Create, FileAccess.Write);
-
-            using var zstd = new CompressionStream(file);
+            await using var zstd = new CompressionStream(file);
             // await using var gz = new GZipStream(file, CompressionLevel.Optimal);
             
             var rows = 0;
