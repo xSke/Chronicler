@@ -9,6 +9,7 @@ using NpgsqlTypes;
 using Serilog;
 using SIBR.Storage.CLI.Models;
 using SIBR.Storage.Data;
+using ZstdNet;
 
 namespace SIBR.Storage.CLI.Export
 {
@@ -34,6 +35,8 @@ namespace SIBR.Storage.CLI.Export
                 await ExportAllBinaryObjects(Path.Join(opts.Directory, "binary_objects.dat"));
                 await ExportAllGameUpdates(Path.Join(opts.Directory, "game_updates.dat"));
                 await ExportAllSiteUpdates(Path.Join(opts.Directory, "site_updates.dat"));
+                await ExportAllFeed(Path.Join(opts.Directory, "feed.dat"));
+                await ExportAllPusher(Path.Join(opts.Directory, "pusher.dat"));
             }
             catch (Exception e)
             {
@@ -124,6 +127,47 @@ namespace SIBR.Storage.CLI.Export
             }, 50000);
         }
 
+        private async Task ExportAllFeed(string filename)
+        {
+            await WriteToFile(filename, "feed(id, timestamp, data)", reader => new RawFeedEvent
+            {
+                Id = reader.Read<Guid>(NpgsqlDbType.Uuid),
+                Timestamp = reader.Read<DateTimeOffset>(NpgsqlDbType.TimestampTz).UtcDateTime,
+                Data = reader.Read<byte[]>(NpgsqlDbType.Bytea),
+            }, 50000);
+        }
+
+        private async Task ExportAllPusher(string filename)
+        {
+            await WriteToFile(filename, "pusher_events(id, channel, event, timestamp, raw, data)", reader => {
+                var pu = new RawPusherEvent
+                {
+                    Id = reader.Read<Guid>(NpgsqlDbType.Uuid),
+                    Channel = reader.Read<string>(NpgsqlDbType.Text),
+                    Event = reader.Read<string>(NpgsqlDbType.Text),
+                    Timestamp = reader.Read<DateTimeOffset>(NpgsqlDbType.TimestampTz).UtcDateTime,
+                    Raw = reader.Read<string>(NpgsqlDbType.Text),
+                };
+
+                if (!reader.IsNull) 
+                    pu.Data = reader.Read<byte[]>(NpgsqlDbType.Bytea);
+                else
+                    reader.Skip();
+
+                return pu;
+            }, 5000);
+        }
+
+        private async Task ExportAll(string filename)
+        {
+            await WriteToFile(filename, "feed(id, timestamp, data)", reader => new RawFeedEvent
+            {
+                Id = reader.Read<Guid>(NpgsqlDbType.Uuid),
+                Timestamp = reader.Read<DateTimeOffset>(NpgsqlDbType.TimestampTz).UtcDateTime,
+                Data = reader.Read<byte[]>(NpgsqlDbType.Bytea),
+            }, 50000);
+        }
+
         private async Task WriteToFile<T>(string filename, string table, Func<NpgsqlBinaryExporter, T> mapper, int bufSize)
         {
             _logger.Information("Exporting from {Table} to {Filename}...", table, filename);
@@ -131,7 +175,9 @@ namespace SIBR.Storage.CLI.Export
             await using var conn = await _db.Obtain();
             await using var reader = conn.BeginBinaryExport($"copy {table} to stdout (format binary)");
 
-            await using var file = File.Open(filename, FileMode.Create, FileAccess.Write);
+            await using var file = File.Open(filename + ".zst", FileMode.Create, FileAccess.Write);
+
+            using var zstd = new CompressionStream(file);
             // await using var gz = new GZipStream(file, CompressionLevel.Optimal);
             
             var rows = 0;
@@ -145,7 +191,9 @@ namespace SIBR.Storage.CLI.Export
 
                     if (buf.Count > 0)
                     {
-                        await MessagePackSerializer.SerializeAsync(file, buf, _opts);
+                        await MessagePackSerializer.SerializeAsync(zstd, buf, _opts);
+                        await zstd.FlushAsync();
+                        await file.FlushAsync();
                         buf.Clear();
                     }
                 }
@@ -159,6 +207,8 @@ namespace SIBR.Storage.CLI.Export
             if (buf.Count > 0)
             {
                 await MessagePackSerializer.SerializeAsync(file, buf, _opts);
+                await zstd.FlushAsync();
+                await file.FlushAsync();
                 buf.Clear();
             }
             

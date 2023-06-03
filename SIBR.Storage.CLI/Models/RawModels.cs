@@ -51,4 +51,23 @@ namespace SIBR.Storage.CLI.Models
         [Key(3)] public Guid SourceId { get; set; }
         [Key(4)] public DateTime? LastModified { get; set; }
     }
+
+    [MessagePackObject]
+    public struct RawFeedEvent
+    {
+        [Key(0)] public Guid Id { get; set; }
+        [Key(1)] public DateTime? Timestamp { get; set; }
+        [Key(2)] public byte[] Data { get; set; }
+    }
+
+    [MessagePackObject]
+    public struct RawPusherEvent
+    {
+        [Key(0)] public Guid Id { get; set; }
+        [Key(1)] public string Channel { get; set; }
+        [Key(2)] public string Event { get; set; }
+        [Key(3)] public DateTime? Timestamp { get; set; }
+        [Key(4)] public string Raw { get; set; }
+        [Key(5)] public byte[] Data { get; set; }
+    }
 }
