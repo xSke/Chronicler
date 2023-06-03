@@ -74,7 +74,7 @@ namespace SIBR.Storage.CLI.Export
             {
                 Hash = reader.Read<Guid>(NpgsqlDbType.Uuid),
                 Data = Convert.ToBase64String(reader.Read<byte[]>(NpgsqlDbType.Bytea))
-            }, 5000);
+            }, 1);
         }
 
         private async Task ExportAllGameUpdates(string filename)
