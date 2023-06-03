@@ -195,8 +195,8 @@ namespace SIBR.Storage.CLI.Export
                         if (buf.Count > 0)
                         {
                             await MessagePackSerializer.SerializeAsync(zstd, buf, _opts);
-                            await zstd.FlushAsync();
-                            await file.FlushAsync();
+                            // await zstd.FlushAsync();
+                            // await file.FlushAsync();
                             buf.Clear();
                         }
                     }
