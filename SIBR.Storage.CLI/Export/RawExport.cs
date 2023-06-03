@@ -164,10 +164,15 @@ namespace SIBR.Storage.CLI.Export
                 _logger.Information("Exporting from {Table} to {Filename}...", table, filename);
                 
                 await using var conn = await _db.Obtain();
+
+                _logger.Information("... (obtained db connection)", table, filename);
+
                 await using var reader = conn.BeginBinaryExport($"copy {table} to stdout (format binary)");
 
+                _logger.Information("... (started binary export)", table, filename);
                 await using var file = File.Open(filename + ".zst", FileMode.Create, FileAccess.Write);
                 await using var zstd = new CompressionStream(file);
+
                 // await using var gz = new GZipStream(file, CompressionLevel.Optimal);
                 
                 var rows = 0;
