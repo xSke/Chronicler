@@ -199,6 +199,7 @@ namespace SIBR.Storage.CLI.Export
                         {
                             await zstd.WriteAsync(Encoding.UTF8.GetBytes(buf.ToString()));
                             buf.Clear();
+                            bufCount = 0;
                         }
                     }
 
