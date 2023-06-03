@@ -181,9 +181,15 @@ namespace SIBR.Storage.CLI.Export
             
             var rows = 0;
 
+            _logger.Information("Starting read...");
+
             var buf = new List<T>();
             while (await reader.StartRowAsync() > -1)
             {
+                if (buf.Count % (bufSize / 20) == 0) {
+                    _logger.Information("Buffering rows ({Rows} in buffer)", buf.Count);
+                }
+
                 if (buf.Count >= bufSize)
                 {
                     _logger.Information("Writing to {Filename} ({Rows} so far)", filename, rows);
