@@ -20,14 +20,14 @@ namespace SIBR.Storage.CLI.Models
         [Key(0)] public Guid Hash { get; set; }
 
         // [MessagePackFormatter(typeof(MsgpackJsonFormatter))]
-        [Key(1)] public byte[] Data { get; set; }
+        [Key(1)] public string Data { get; set; }
     }
 
     [MessagePackObject]
     public struct RawBinaryObject
     {
         [Key(0)] public Guid Hash { get; set; }
-        [Key(1)] public byte[] Data { get; set; }
+        [Key(1)] public string Data { get; set; }
     }
 
     [MessagePackObject]
@@ -57,7 +57,7 @@ namespace SIBR.Storage.CLI.Models
     {
         [Key(0)] public Guid Id { get; set; }
         [Key(1)] public DateTime? Timestamp { get; set; }
-        [Key(2)] public byte[] Data { get; set; }
+        [Key(2)] public string Data { get; set; }
     }
 
     [MessagePackObject]
@@ -68,6 +68,6 @@ namespace SIBR.Storage.CLI.Models
         [Key(2)] public string Event { get; set; }
         [Key(3)] public DateTime? Timestamp { get; set; }
         [Key(4)] public string Raw { get; set; }
-        [Key(5)] public byte[] Data { get; set; }
+        [Key(5)] public string Data { get; set; }
     }
 }

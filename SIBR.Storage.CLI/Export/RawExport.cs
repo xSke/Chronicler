@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using MessagePack;
 using MessagePack.Formatters;
+using Newtonsoft.Json;
 using Npgsql;
 using NpgsqlTypes;
 using Serilog;
@@ -30,13 +32,13 @@ namespace SIBR.Storage.CLI.Export
         {
             try
             {
-                await ExportAllUpdates(Path.Join(opts.Directory, "updates.dat"));
-                await ExportAllObjects(Path.Join(opts.Directory, "objects.dat"));
-                await ExportAllBinaryObjects(Path.Join(opts.Directory, "binary_objects.dat"));
-                await ExportAllGameUpdates(Path.Join(opts.Directory, "game_updates.dat"));
-                await ExportAllSiteUpdates(Path.Join(opts.Directory, "site_updates.dat"));
-                await ExportAllFeed(Path.Join(opts.Directory, "feed.dat"));
-                await ExportAllPusher(Path.Join(opts.Directory, "pusher.dat"));
+                await ExportAllUpdates(Path.Join(opts.Directory, "updates.ndjson"));
+                await ExportAllObjects(Path.Join(opts.Directory, "objects.ndjson"));
+                await ExportAllBinaryObjects(Path.Join(opts.Directory, "binary_objects.ndjson"));
+                await ExportAllGameUpdates(Path.Join(opts.Directory, "game_updates.ndjson"));
+                await ExportAllSiteUpdates(Path.Join(opts.Directory, "site_updates.ndjson"));
+                await ExportAllFeed(Path.Join(opts.Directory, "feed.ndjson"));
+                await ExportAllPusher(Path.Join(opts.Directory, "pusher.ndjson"));
             }
             catch (Exception e)
             {
@@ -71,7 +73,7 @@ namespace SIBR.Storage.CLI.Export
             await WriteToFile(filename, "binary_objects(hash, data)", reader => new RawBinaryObject
             {
                 Hash = reader.Read<Guid>(NpgsqlDbType.Uuid),
-                Data = reader.Read<byte[]>(NpgsqlDbType.Bytea)
+                Data = Convert.ToBase64String(reader.Read<byte[]>(NpgsqlDbType.Bytea))
             }, 5000);
         }
 
@@ -107,7 +109,7 @@ namespace SIBR.Storage.CLI.Export
                 return new RawObject
                 {
                     Hash = hash,
-                    Data = json
+                    Data = JsonToString(json)
                 };
             }, 2500);
             
@@ -133,7 +135,7 @@ namespace SIBR.Storage.CLI.Export
             {
                 Id = reader.Read<Guid>(NpgsqlDbType.Uuid),
                 Timestamp = reader.Read<DateTimeOffset>(NpgsqlDbType.TimestampTz).UtcDateTime,
-                Data = reader.Read<byte[]>(NpgsqlDbType.Bytea),
+                Data = JsonToString(reader.Read<byte[]>(NpgsqlDbType.Bytea)),
             }, 50000);
         }
 
@@ -150,7 +152,7 @@ namespace SIBR.Storage.CLI.Export
                 };
 
                 if (!reader.IsNull) 
-                    pu.Data = reader.Read<byte[]>(NpgsqlDbType.Bytea);
+                    pu.Data = JsonToString(reader.Read<byte[]>(NpgsqlDbType.Bytea));
                 else
                     reader.Skip();
 
@@ -181,37 +183,34 @@ namespace SIBR.Storage.CLI.Export
 
                 _logger.Information("Starting read...");
 
-                var buf = new List<T>();
+                var buf = new StringBuilder();
+                var bufCount = 0;
                 while (await reader.StartRowAsync() > -1)
                 {
                     // if (buf.Count % (bufSize / 20) == 0) {
                     //     _logger.Information("Buffering rows ({Rows} in buffer)", buf.Count);
                     // }
 
-                    if (buf.Count >= bufSize)
+                    if (bufCount >= bufSize)
                     {
                         _logger.Information("Writing to {Filename} ({Rows} so far)", filename, rows);
 
-                        if (buf.Count > 0)
+                        if (bufCount > 0)
                         {
-                            await MessagePackSerializer.SerializeAsync(zstd, buf, _opts);
-                            // await zstd.FlushAsync();
-                            // await file.FlushAsync();
+                            await zstd.WriteAsync(Encoding.UTF8.GetBytes(buf.ToString()));
                             buf.Clear();
                         }
                     }
 
                     var obj = mapper(reader);
-                    buf.Add(obj);
-
+                    buf.AppendLine(JsonConvert.SerializeObject(obj));
+                    bufCount++;
                     rows++;
                 }
                 
-                if (buf.Count > 0)
+                if (bufCount > 0)
                 {
-                    await MessagePackSerializer.SerializeAsync(file, buf, _opts);
-                    await zstd.FlushAsync();
-                    await file.FlushAsync();
+                    await zstd.WriteAsync(Encoding.UTF8.GetBytes(buf.ToString()));
                     buf.Clear();
                 }
                 
@@ -219,6 +218,11 @@ namespace SIBR.Storage.CLI.Export
             } catch (Exception e) {
                 _logger.Error(e, "Got exception");
             }
+        }
+
+        private string JsonToString(byte[] bytes) {
+            // https://stackoverflow.com/a/35601852
+            return Encoding.UTF8.GetString(bytes.AsSpan(1));
         }
 
         public class MsgpackJsonFormatter : IMessagePackFormatter<string>
