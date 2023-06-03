@@ -13,5 +13,8 @@ RUN dotnet restore
 ADD . /app
 RUN dotnet publish -c Release -o out/
 
+# horrible crime that shouldn't be necessary
+RUN cp /usr/lib/x86_64-linux-gnu/libzstd.so.1 cp /usr/lib/x86_64-linux-gnu/libzstd.so
+
 WORKDIR /app/out
 ENTRYPOINT ["dotnet"]
