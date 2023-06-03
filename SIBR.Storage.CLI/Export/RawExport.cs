@@ -158,66 +158,60 @@ namespace SIBR.Storage.CLI.Export
             }, 5000);
         }
 
-        private async Task ExportAll(string filename)
-        {
-            await WriteToFile(filename, "feed(id, timestamp, data)", reader => new RawFeedEvent
-            {
-                Id = reader.Read<Guid>(NpgsqlDbType.Uuid),
-                Timestamp = reader.Read<DateTimeOffset>(NpgsqlDbType.TimestampTz).UtcDateTime,
-                Data = reader.Read<byte[]>(NpgsqlDbType.Bytea),
-            }, 50000);
-        }
-
         private async Task WriteToFile<T>(string filename, string table, Func<NpgsqlBinaryExporter, T> mapper, int bufSize)
         {
-            _logger.Information("Exporting from {Table} to {Filename}...", table, filename);
-            
-            await using var conn = await _db.Obtain();
-            await using var reader = conn.BeginBinaryExport($"copy {table} to stdout (format binary)");
+            try {
+                _logger.Information("Exporting from {Table} to {Filename}...", table, filename);
+                
+                await using var conn = await _db.Obtain();
+                await using var reader = conn.BeginBinaryExport($"copy {table} to stdout (format binary)");
 
-            await using var file = File.Open(filename + ".zst", FileMode.Create, FileAccess.Write);
-            await using var zstd = new CompressionStream(file);
-            // await using var gz = new GZipStream(file, CompressionLevel.Optimal);
-            
-            var rows = 0;
+                await using var file = File.Open(filename + ".zst", FileMode.Create, FileAccess.Write);
+                await using var zstd = new CompressionStream(file);
+                // await using var gz = new GZipStream(file, CompressionLevel.Optimal);
+                
+                var rows = 0;
 
-            _logger.Information("Starting read...");
+                _logger.Information("Starting read...");
 
-            var buf = new List<T>();
-            while (await reader.StartRowAsync() > -1)
-            {
-                if (buf.Count % (bufSize / 20) == 0) {
-                    _logger.Information("Buffering rows ({Rows} in buffer)", buf.Count);
-                }
-
-                if (buf.Count >= bufSize)
+                var buf = new List<T>();
+                while (await reader.StartRowAsync() > -1)
                 {
-                    _logger.Information("Writing to {Filename} ({Rows} so far)", filename, rows);
-
-                    if (buf.Count > 0)
-                    {
-                        await MessagePackSerializer.SerializeAsync(zstd, buf, _opts);
-                        await zstd.FlushAsync();
-                        await file.FlushAsync();
-                        buf.Clear();
+                    if (buf.Count % (bufSize / 20) == 0) {
+                        _logger.Information("Buffering rows ({Rows} in buffer)", buf.Count);
                     }
+
+                    if (buf.Count >= bufSize)
+                    {
+                        _logger.Information("Writing to {Filename} ({Rows} so far)", filename, rows);
+
+                        if (buf.Count > 0)
+                        {
+                            await MessagePackSerializer.SerializeAsync(zstd, buf, _opts);
+                            await zstd.FlushAsync();
+                            await file.FlushAsync();
+                            buf.Clear();
+                        }
+                    }
+
+                    var obj = mapper(reader);
+                    buf.Add(obj);
+
+                    rows++;
                 }
-
-                var obj = mapper(reader);
-                buf.Add(obj);
-
-                rows++;
+                
+                if (buf.Count > 0)
+                {
+                    await MessagePackSerializer.SerializeAsync(file, buf, _opts);
+                    await zstd.FlushAsync();
+                    await file.FlushAsync();
+                    buf.Clear();
+                }
+                
+                _logger.Information("Done exporting {Table}.", table);
+            } catch (Exception e) {
+                _logger.Error(e, "Got exception");
             }
-            
-            if (buf.Count > 0)
-            {
-                await MessagePackSerializer.SerializeAsync(file, buf, _opts);
-                await zstd.FlushAsync();
-                await file.FlushAsync();
-                buf.Clear();
-            }
-            
-            _logger.Information("Done exporting {Table}.", table);
         }
 
         public class MsgpackJsonFormatter : IMessagePackFormatter<string>
